@@ -1,8 +1,8 @@
-# Quick Fix: Port 5000 Already in Use
+# Quick Fix: Port 1699 Already in Use
 
 ## Error Message
 ```
-Error starting userland proxy: listen tcp4 0.0.0.0:5000: bind: address already in use
+Error starting userland proxy: listen tcp4 0.0.0.0:1699: bind: address already in use
 ```
 
 ## Quick Solutions
@@ -12,12 +12,12 @@ Error starting userland proxy: listen tcp4 0.0.0.0:5000: bind: address already i
 SSH into your NAS and run:
 
 ```bash
-# Find what's using port 5000
-netstat -tuln | grep 5000
+# Find what's using port 1699
+netstat -tuln | grep 1699
 # OR
-lsof -i :5000
+lsof -i :1699
 # OR  
-ss -tulpn | grep 5000
+ss -tulpn | grep 1699
 
 # Check Docker containers
 docker ps -a
@@ -46,15 +46,15 @@ nano docker-compose.webhook.yml
 
 **FROM:**
 ```yaml
-      - "5000:5000"
+      - "1699:1699"
 ```
 
 **TO:**
 ```yaml
-      - "5002:5000"
+      - "1701:1699"
 ```
 
-This uses port 5002 externally (access via `http://NAS_IP:5002`) while keeping 5000 inside the container.
+This uses port 1701 externally (access via `http://NAS_IP:1701`) while keeping 1699 inside the container.
 
 **Step 3:** Save and restart
 
@@ -90,8 +90,8 @@ After stopping services:
 
 ```bash
 # Check if port is now free
-netstat -tuln | grep 5000
-# Should return nothing if port is free
+netstat -tuln | grep 1699
+# Should return nothing if port 1699 is free
 ```
 
 ## About the Git Warnings

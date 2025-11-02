@@ -117,7 +117,7 @@ This method triggers deployment immediately when you push to GitHub.
    **b. Settings → Webhooks → Add webhook**
    
    **c. Configure:**
-   - **Payload URL:** `http://your-nas-ip:5001/webhook`
+   - **Payload URL:** `http://your-nas-ip:1700/webhook`
    - **Content type:** `application/json`
    - **Secret:** (same secret you set in webhook_server.py)
    - **Events:** Select "Just the push event"
@@ -214,7 +214,7 @@ If you prefer using Synology's built-in tools:
 - Check file permissions
 
 ### Webhook Not Triggering:
-- Check firewall allows port 5001
+- Check firewall allows port 1700
 - Verify webhook secret matches
 - Check webhook delivery logs in GitHub
 - Check webhook server logs: `sudo journalctl -u nas-player-webhook -f`

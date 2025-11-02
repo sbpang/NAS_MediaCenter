@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir Flask==3.0.0
 COPY webhook_server.py .
 
 # Expose port
-EXPOSE 5001
+EXPOSE 1700
 
 # Run webhook server
 CMD ["python", "webhook_server.py"]

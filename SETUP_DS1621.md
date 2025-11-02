@@ -216,8 +216,8 @@ docker-compose -f docker-compose.webhook.yml up -d --build
 
 This will:
 - Build both Docker containers
-- Start the media player on port 5000
-- Start the webhook receiver on port 5001
+- Start the media player on port 1699
+- Start the webhook receiver on port 1700
 
 #### 7E. Verify Services Are Running
 
@@ -259,9 +259,9 @@ Fill in the form:
 
 - **Payload URL:** 
   ```
-  http://YOUR_NAS_IP:5001/webhook
+  http://YOUR_NAS_IP:1700/webhook
   ```
-  Replace `YOUR_NAS_IP` with your NAS IP address (e.g., `http://192.168.1.100:5001/webhook`)
+  Replace `YOUR_NAS_IP` with your NAS IP address (e.g., `http://192.168.1.100:1700/webhook`)
 
 - **Content type:** `application/json`
 
@@ -285,7 +285,7 @@ GitHub will send a test ping. You can check if it worked:
 4. Check if it returned a 200 status
 
 **Note:** If you get an error, check:
-- Firewall on your NAS allows port 5001
+- Firewall on your NAS allows port 1700
 - Webhook service is running: `docker logs nas-player-webhook`
 - Your router allows incoming connections (or use a VPN/tailscale)
 
@@ -298,14 +298,14 @@ GitHub will send a test ping. You can check if it worked:
 1. **Control Panel → Security → Firewall**
 2. **Create Rule:**
    - **Name:** NAS Media Player
-   - **Port:** 5000
+   - **Port:** 1699
    - **Protocol:** TCP
    - **Action:** Allow
    - **Source IP:** Your local network (e.g., `192.168.1.0/24`)
 
 3. **Create Another Rule:**
    - **Name:** Webhook Receiver
-   - **Port:** 5001
+   - **Port:** 1700
    - **Protocol:** TCP
    - **Action:** Allow
    - **Source IP:** 
@@ -313,7 +313,7 @@ GitHub will send a test ping. You can check if it worked:
      - For GitHub webhooks, you may need to allow all or use a service like ngrok
 
 **Security Note:** For production, consider:
-- Using a VPN (like Tailscale) instead of exposing port 5001 publicly
+- Using a VPN (like Tailscale) instead of exposing port 1700 publicly
 - Using Synology's built-in reverse proxy with SSL
 - Restricting access to specific IP ranges
 
@@ -324,7 +324,7 @@ GitHub will send a test ping. You can check if it worked:
 ### 10A. Test Media Player
 
 1. Open your browser
-2. Go to: `http://YOUR_NAS_IP:5000`
+2. Go to: `http://YOUR_NAS_IP:1699`
 3. You should see the NAS Media Player interface
 4. Check if artists and videos load correctly
 
@@ -369,10 +369,10 @@ docker restart nas-player
 docker logs nas-player-webhook
 
 # Verify webhook is listening
-curl http://localhost:5001/health
+curl http://localhost:1700/health
 
 # Check if port is open
-netstat -tuln | grep 5001
+netstat -tuln | grep 1700
 ```
 
 ### Git Not Found / Git Command Not Found
@@ -446,22 +446,22 @@ git clone git@github.com:sbpang/NAS_MediaCenter.git .
 
 ### Port Already in Use (Critical Error)
 
-If you see: `Error starting userland proxy: listen tcp4 0.0.0.0:5000: bind: address already in use`
+If you see: `Error starting userland proxy: listen tcp4 0.0.0.0:1699: bind: address already in use`
 
-**This means port 5000 is already being used by another service.**
+**This means port 1699 is already being used by another service.**
 
-#### Solution 1: Find and Stop the Service Using Port 5000
+#### Solution 1: Find and Stop the Service Using Port 1699
 
 ```bash
-# Find what's using port 5000
-netstat -tuln | grep 5000
+# Find what's using port 1699
+netstat -tuln | grep 1699
 # OR
-lsof -i :5000
+lsof -i :1699
 # OR
-ss -tulpn | grep 5000
+ss -tulpn | grep 1699
 
 # Check if there's already a Docker container using it
-docker ps -a | grep 5000
+docker ps -a | grep 1699
 
 # If it's a Docker container, stop it:
 docker stop <container_name>
@@ -486,16 +486,16 @@ nano docker-compose.webhook.yml
 
 Change line 11 from:
 ```yaml
-      - "5000:5000"
+      - "1699:1699"
 ```
-To (for example, using port 5002):
+To (for example, using port 1701):
 ```yaml
-      - "5002:5000"
+      - "1701:1699"
 ```
 
 This means:
-- External port: 5002 (access via `http://NAS_IP:5002`)
-- Internal container port: 5000 (app still runs on 5000 inside container)
+- External port: 1701 (access via `http://NAS_IP:1701`)
+- Internal container port: 1699 (app still runs on 1699 inside container)
 
 **After changing, save and restart:**
 ```bash

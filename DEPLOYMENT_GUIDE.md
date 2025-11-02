@@ -31,7 +31,7 @@ This guide provides detailed steps for deploying the NAS Media Player on your Sy
    RUN pip install --no-cache-dir -r requirements.txt
    COPY . .
    ENV VIDEO_SERVER_PATH=/video
-   EXPOSE 5000
+   EXPOSE 1699
    CMD ["python", "app.py"]
    ```
 
@@ -59,15 +59,15 @@ This guide provides detailed steps for deploying the NAS Media Player on your Sy
        - File/Folder: `/volume1/Video_Server`
        - Mount path: `/video`
      - **Port Settings:**
-       - Container Port: `5000`
-       - Local Port: `5000` (or any available port)
+       - Container Port: `1699`
+       - Local Port: `1699` (or any available port)
      - **Environment Variables:**
        - `VIDEO_SERVER_PATH=/video/static/artists`
      - **Auto Restart**: Enable
 
 6. **Start Container:**
    - Launch the container
-   - Access at: `http://your-nas-ip:5000`
+   - Access at: `http://your-nas-ip:1699`
 
 ### Option B: Native Python (Direct Installation)
 
@@ -135,8 +135,8 @@ This guide provides detailed steps for deploying the NAS Media Player on your Sy
    ```bash
    python3 app.py
    ```
-   - Should see: `Running on http://0.0.0.0:5000`
-   - Access from browser: `http://your-nas-ip:5000`
+   - Should see: `Running on http://0.0.0.0:1699`
+   - Access from browser: `http://your-nas-ip:1699`
 
 9. **Create Startup Script (Optional):**
    ```bash
@@ -178,12 +178,12 @@ This guide provides detailed steps for deploying the NAS Media Player on your Sy
    - Description: `NAS Media Player`
    - Protocol: `HTTP`
    - Hostname: `nas-player` (or your preferred subdomain)
-   - Port: `5000` (or your chosen port)
+   - Port: `1699` (or your chosen port)
    
    - Destination:
      - Protocol: `HTTP`
      - Hostname: `localhost`
-     - Port: `5000`
+     - Port: `1699`
 
 3. **Access via:** `http://nas-player` (if DNS configured) or `http://your-nas-ip`
 
@@ -198,7 +198,7 @@ This guide provides detailed steps for deploying the NAS Media Player on your Sy
        server_name nas-player.local;
        
        location / {
-           proxy_pass http://localhost:5000;
+           proxy_pass http://localhost:1699;
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -226,14 +226,14 @@ For better performance and reliability:
 3. **Run with Gunicorn:**
    ```bash
    cd /volume1/docker/nas-player
-   gunicorn -w 4 -b 0.0.0.0:5000 --timeout 120 app:app
+   gunicorn -w 4 -b 0.0.0.0:1699 --timeout 120 app:app
    ```
 
 4. **Update startup script:**
    ```bash
    #!/bin/bash
    cd /volume1/docker/nas-player
-   /usr/local/bin/gunicorn -w 4 -b 0.0.0.0:5000 --timeout 120 app:app
+   /usr/local/bin/gunicorn -w 4 -b 0.0.0.0:1699 --timeout 120 app:app
    ```
 
 ## Verification Checklist
@@ -266,7 +266,7 @@ chmod -R 755 /volume1/docker/nas-player
 
 ### Issue: Port already in use
 **Solution:**
-- Change port in `app.py`: `app.run(port=5001)`
+- Change port in `app.py`: `app.run(port=1700)`
 - Update firewall rules if needed
 
 ### Issue: Slow performance
@@ -279,7 +279,7 @@ chmod -R 755 /volume1/docker/nas-player
 
 1. **Control Panel → Security → Firewall**
 2. **Create Rule:**
-   - Port: `5000` (or your chosen port)
+   - Port: `1699` (or your chosen port)
    - Protocol: `TCP`
    - Action: `Allow`
    - Source IP: Your network range (e.g., `192.168.1.0/24`)

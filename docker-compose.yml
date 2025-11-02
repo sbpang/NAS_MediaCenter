@@ -5,7 +5,7 @@ services:
     build: .
     container_name: nas-player
     ports:
-      - "5000:5000"
+      - "1699:1699"
     volumes:
       # Mount your Video_Server folder
       # Update this path to match your NAS Video_Server location

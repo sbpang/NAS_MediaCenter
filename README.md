@@ -42,7 +42,7 @@ NAS_Player/
    ```
 
 4. **Access the player:**
-   Open your browser to `http://localhost:5000`
+   Open your browser to `http://localhost:1699`
 
 ## Deployment on Synology DS1621+
 
@@ -55,7 +55,7 @@ NAS_Player/
    COPY requirements.txt .
    RUN pip install --no-cache-dir -r requirements.txt
    COPY . .
-   EXPOSE 5000
+   EXPOSE 1699
    CMD ["python", "app.py"]
    ```
 
@@ -141,7 +141,7 @@ NAS_Player/
 4. **For production, use Gunicorn:**
    ```bash
    pip install gunicorn
-   gunicorn -w 4 -b 0.0.0.0:5000 app:app
+   gunicorn -w 4 -b 0.0.0.0:1699 app:app
    ```
 
 ### Reverse Proxy Setup (Recommended for Production)
@@ -152,7 +152,7 @@ NAS_Player/
    - Open Control Panel → Application Portal → Reverse Proxy
    - Add rule:
      - Source: Protocol: HTTP, Hostname: `nas-player.local`, Port: 80
-     - Destination: Protocol: HTTP, Hostname: `localhost`, Port: 5000
+     - Destination: Protocol: HTTP, Hostname: `localhost`, Port: 1699
 
 3. **Access via:** `http://nas-player.local`
 
@@ -192,7 +192,7 @@ Video_Server/
 - If issues persist, check firewall settings
 
 ### Port conflicts
-- Change port in `app.py`: `app.run(port=5001)`
+- Change port in `app.py`: `app.run(port=1700)`
 - Update reverse proxy configuration
 
 ## Security Considerations

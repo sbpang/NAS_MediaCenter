@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port
-EXPOSE 5000
+EXPOSE 1699
 
 # Set environment variable (can be overridden)
 ENV VIDEO_SERVER_PATH=/video

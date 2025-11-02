@@ -78,5 +78,5 @@ def health():
 
 if __name__ == '__main__':
     # Run on different port to avoid conflict with main app
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='0.0.0.0', port=1700, debug=False)
 
