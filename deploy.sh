@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 # Configuration - UPDATE THESE VALUES
-GIT_REPO_URL="https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git"
+GIT_REPO_URL="https://github.com/sbpang/NAS_MediaCenter.git"
 DEPLOY_DIR="/volume1/docker/nas-player"
 BRANCH="main"  # or "master" depending on your default branch
 
