@@ -31,15 +31,18 @@ chmod +x deploy.sh
 
 # 5. Create .env file for webhook secret (optional but recommended)
 # Generate a secret or use one you already have
-python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || echo "your-secret-key-here"
+python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || echo "generated secrete"
 
 # Create .env file
 cat > .env << 'EOF'
-WEBHOOK_SECRET=your-secret-key-here
+WEBHOOK_SECRET=your-secret-key-here-change-this
 DEPLOY_SCRIPT=/app/deploy.sh
 EOF
 
-# Edit .env to replace 'your-secret-key-here' with your actual secret
+# Edit .env to replace 'your-secret-key-here-change-this' with your actual secret
+# Generate a secure secret first:
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+# Then edit the file:
 nano .env
 # Press Ctrl+X, then Y, then Enter to save
 

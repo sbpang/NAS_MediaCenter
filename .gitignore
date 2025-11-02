@@ -16,4 +16,7 @@ ENV/
 .idea/
 *.db
 *.sqlite
+.env
+.env.local
+.env.*.local
 
