@@ -4,34 +4,41 @@ After updating ports from 5000/5001 to 1699/1700, you need to recreate your Dock
 
 ## Quick Steps (On Your NAS via SSH)
 
-**IMPORTANT:** The docker-compose file mounts your code directory, so you MUST update the code on the NAS first!
+**CRITICAL:** The docker-compose file mounts your code directory (`/volume1/docker/nas-player:/app`), so the code on your NAS MUST be updated first!
 
 ```bash
 # 1. Navigate to your project directory
 cd /volume1/docker/nas-player
 
-# 2. Pull the latest code (THIS IS CRITICAL!)
+# 2. Pull the latest code with port changes (THIS IS ESSENTIAL!)
 git pull origin main
 
-# 3. Verify app.py has the new port (should show port=1699)
+# 3. Verify the ports are updated in the files
+echo "=== Checking app.py port ==="
 grep "port=" app.py
+# Should show: port=1699
+
+echo "=== Checking docker-compose ports ==="
+grep -A 2 "ports:" docker-compose.webhook.yml
+# Should show: 1699:1699 and 1700:1700
 
 # 4. Stop and remove existing containers completely
 docker-compose -f docker-compose.webhook.yml down
 
-# 5. Remove old containers if they exist
+# 5. Remove old containers if they still exist
 docker rm nas-player nas-player-webhook 2>/dev/null || true
 
-# 6. Remove old images to force complete rebuild
+# 6. Check if anything is still using port 5000 and kill it
+echo "=== Checking for port 5000 usage ==="
+netstat -tuln | grep 5000
+# If something is found, stop it:
+docker ps -a | grep 5000
+pkill -f "python.*app.py" 2>/dev/null || true
+
+# 7. Remove old images to force complete rebuild
 docker rmi nas-player nas-player-webhook 2>/dev/null || true
 
-# 7. Check if port 5000 is still in use (stop it if found)
-netstat -tuln | grep 5000
-# If something is using it, stop it:
-docker ps -a | grep 5000
-docker stop <old_container> 2>/dev/null || true
-
-# 8. Rebuild and start with new configuration
+# 8. NOW rebuild and start with new configuration
 docker-compose -f docker-compose.webhook.yml up -d --build
 
 # 9. Verify containers are running
@@ -44,11 +51,10 @@ docker logs nas-player-webhook
 
 ## Why This Is Needed
 
-1. **Volume Mount Override**: The docker-compose file mounts `/volume1/docker/nas-player:/app`, so the code on your NAS must be updated with `git pull` first!
+1. **Volume Mount Override**: The docker-compose file mounts `/volume1/docker/nas-player:/app`, which means the code ON YOUR NAS is what runs, not the code in the Docker image! You MUST update the code on your NAS with `git pull` first.
 2. **Port Mappings Changed**: The containers were created with old port mappings (5000:5000, 5001:5001)
 3. **Code Updated**: The application code now uses ports 1699 and 1700
 4. **Fresh Build Required**: Docker needs to rebuild with the new port configurations
-5. **Old Containers**: May still be running with old port configuration
 
 ## What Happens
 
@@ -77,31 +83,36 @@ docker logs nas-player-webhook
 
 ## If You Get Port Already in Use Errors
 
-### Still Seeing Port 5000 Error (Like You Are Now)
+### Still Getting Port 5000 Error (Current Issue)
 
 This means the code on your NAS hasn't been updated yet, or old containers are still running:
 
 ```bash
-# 1. Make sure you pulled the latest code
+# 1. FIRST: Make sure you pulled the latest code
 cd /volume1/docker/nas-player
 git pull origin main
 
-# 2. Verify app.py has port 1699
+# 2. Verify app.py has port 1699 (not 5000)
 cat app.py | grep "port="
 # Should show: port=1699
+# If it shows port=5000, the code wasn't updated!
 
-# 3. Stop ALL containers using port 5000
-docker ps -a | grep 5000
+# 3. Verify docker-compose.webhook.yml has the new ports
+cat docker-compose.webhook.yml | grep -A 1 "ports:"
+# Should show: 1699:1699 and 1700:1700
+
+# 4. Stop ALL containers and processes using port 5000
+docker ps -a
 docker stop $(docker ps -aq) 2>/dev/null || true
 docker rm $(docker ps -aq) 2>/dev/null || true
 
-# 4. Check for any process using port 5000
+# 5. Check for any process using port 5000
 netstat -tuln | grep 5000
 lsof -i :5000
 # Kill any Python processes if found
 pkill -f "python.*app.py" || true
 
-# 5. Now try building again
+# 6. NOW try building again
 docker-compose -f docker-compose.webhook.yml down
 docker-compose -f docker-compose.webhook.yml up -d --build
 ```
