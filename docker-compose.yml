@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  nas-player:
+    build: .
+    container_name: nas-player
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount your Video_Server folder
+      # Update this path to match your NAS Video_Server location
+      - /volume1/Video_Server:/video:ro
+    environment:
+      - VIDEO_SERVER_PATH=/video
+    restart: unless-stopped
+    networks:
+      - nas-network
+
+networks:
+  nas-network:
+    driver: bridge
+
