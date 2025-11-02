@@ -9,6 +9,7 @@ import requests
 from typing import Optional, Dict, List
 from urllib.parse import quote, urljoin
 import json
+from bs4 import BeautifulSoup
 
 class JavMetadataScraper:
     """
@@ -56,7 +57,7 @@ class JavMetadataScraper:
     def scrape_javdb(self, code: str) -> Optional[str]:
         """
         Scrape from javdb.com (popular metadata site)
-        JavSP uses similar approach with multiple fallback sources
+        Uses BeautifulSoup like JavSP for robust HTML parsing
         """
         try:
             code_info = self.extract_code_pattern(code)
@@ -70,34 +71,39 @@ class JavMetadataScraper:
             if response.status_code != 200:
                 return None
             
-            # Look for title in search results or detail page
-            # This is simplified - JavSP has more sophisticated parsing
-            html = response.text
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Try to find title in HTML (simplified pattern)
-            # JavSP uses BeautifulSoup for better parsing
-            title_patterns = [
-                r'<a[^>]+href="[^"]*/v/[^"]*"[^>]*>([^<]+)</a>',
-                r'<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</div>',
-            ]
-            
-            for pattern in title_patterns:
-                matches = re.findall(pattern, html, re.IGNORECASE)
-                if matches:
-                    title = matches[0].strip()
-                    if title and len(title) > 5:  # Basic validation
+            # Find first result link
+            result_link = soup.find('a', href=re.compile(r'/v/\d+'))
+            if result_link:
+                detail_path = result_link.get('href')
+                if detail_path:
+                    detail_url = urljoin('https://javdb.com', detail_path)
+                    detail_response = self.session.get(detail_url, timeout=self.timeout)
+                    if detail_response.status_code == 200:
+                        detail_soup = BeautifulSoup(detail_response.text, 'html.parser')
+                        
+                        # Try multiple selectors (JavSP-style multiple attempts)
+                        title_selectors = [
+                            'strong.video-title',
+                            'h2',
+                            'div.video-title',
+                            'strong'
+                        ]
+                        
+                        for selector in title_selectors:
+                            title_elem = detail_soup.select_one(selector)
+                            if title_elem:
+                                title = title_elem.get_text(strip=True)
+                                if title and len(title) > 5:
+                                    return title
+                
+                # Fallback: get title from search result directly
+                title_elem = result_link.find_parent().find_next(['div', 'span', 'strong'])
+                if title_elem:
+                    title = title_elem.get_text(strip=True)
+                    if title and len(title) > 5:
                         return title
-            
-            # If search found results, try to access first result
-            detail_match = re.search(r'href="(/v/[^"]+)"', html)
-            if detail_match:
-                detail_url = urljoin('https://javdb.com', detail_match.group(1))
-                detail_response = self.session.get(detail_url, timeout=self.timeout)
-                if detail_response.status_code == 200:
-                    detail_html = detail_response.text
-                    title_match = re.search(r'<strong[^>]*>([^<]+)</strong>', detail_html)
-                    if title_match:
-                        return title_match.group(1).strip()
         
         except Exception as e:
             print(f"Error scraping JavDB for {code}: {e}")
@@ -105,7 +111,7 @@ class JavMetadataScraper:
         return None
     
     def scrape_javlibrary(self, code: str) -> Optional[str]:
-        """Scrape from javlibrary.com (another popular source)"""
+        """Scrape from javlibrary.com (another popular source) - using BeautifulSoup like JavSP"""
         try:
             code_info = self.extract_code_pattern(code)
             if not code_info:
@@ -118,18 +124,20 @@ class JavMetadataScraper:
             if response.status_code != 200:
                 return None
             
-            html = response.text
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find title in results
-            title_patterns = [
-                r'<div[^>]*class="video"[^>]*>.*?<a[^>]+>([^<]+)</a>',
-                r'<a[^>]+href="[^"]*/vl[^"]*"[^>]*title="([^"]+)"',
-            ]
-            
-            for pattern in title_patterns:
-                matches = re.findall(pattern, html, re.DOTALL | re.IGNORECASE)
-                if matches:
-                    title = matches[0].strip()
+            # Find video entries
+            video_divs = soup.find_all('div', class_=re.compile(r'video', re.I))
+            for video_div in video_divs[:3]:  # Check first 3 results
+                title_link = video_div.find('a', href=re.compile(r'/vl\d+'))
+                if title_link:
+                    title = title_link.get_text(strip=True)
+                    if title and len(title) > 5:
+                        return title
+                
+                # Alternative: look for title attribute
+                if title_link and title_link.get('title'):
+                    title = title_link.get('title').strip()
                     if title and len(title) > 5:
                         return title
         
@@ -139,25 +147,49 @@ class JavMetadataScraper:
         return None
     
     def scrape_dmm(self, code: str) -> Optional[str]:
-        """Scrape from DMM (official site, more reliable)"""
+        """Scrape from DMM (official site, more reliable) - using BeautifulSoup"""
         try:
             code_info = self.extract_code_pattern(code)
             if not code_info:
                 return None
             
-            # DMM search
-            search_url = f"https://www.dmm.co.jp/search/=/searchstr={quote(code)}"
+            # DMM search - try both English and Japanese versions
+            search_urls = [
+                f"https://www.dmm.co.jp/search/=/searchstr={quote(code)}",
+                f"https://www.dmm.co.jp/mono/dvd/-/search/=/searchstr={quote(code)}",
+            ]
             
-            response = self.session.get(search_url, timeout=self.timeout)
-            if response.status_code != 200:
-                return None
-            
-            html = response.text
-            
-            # DMM title pattern
-            title_match = re.search(r'<p[^>]*class="tmb"[^>]*>.*?<img[^>]+alt="([^"]+)"', html, re.DOTALL)
-            if title_match:
-                return title_match.group(1).strip()
+            for search_url in search_urls:
+                try:
+                    response = self.session.get(search_url, timeout=self.timeout)
+                    if response.status_code != 200:
+                        continue
+                    
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Find product titles (multiple selectors like JavSP)
+                    title_selectors = [
+                        'p.tmb img[alt]',
+                        'div.m-box dl dt a',
+                        'h3 a',
+                        'a[href*="/detail/"]',
+                    ]
+                    
+                    for selector in title_selectors:
+                        title_elem = soup.select_one(selector)
+                        if title_elem:
+                            title = title_elem.get('alt') or title_elem.get_text(strip=True)
+                            if title and len(title) > 5:
+                                return title
+                    
+                    # Fallback: regex search in HTML
+                    title_match = re.search(r'alt="([^"]{10,})"', response.text)
+                    if title_match:
+                        title = title_match.group(1).strip()
+                        if title:
+                            return title
+                except:
+                    continue
         
         except Exception as e:
             print(f"Error scraping DMM for {code}: {e}")
