@@ -50,14 +50,55 @@ Enter your admin password when prompted.
    docker-compose --version
    ```
 
-### Option B: Install Git (For Manual Deployment)
+### Option B: Install Git (REQUIRED for Deployment)
 
-If not already installed:
+**Git is required to clone the repository.** You have several options:
+
+#### Method 1: Via Package Center (Easiest - Recommended)
+
+1. **Open DSM Web Interface**
+2. Go to **Package Center**
+3. Search for **"Git Server"**
+4. Click **Install**
+5. Wait for installation to complete
+
+#### Method 2: Via Command Line
+
+Try these commands in order (SSH into your NAS first):
+
 ```bash
-# Via Package Center, install "Git Server"
-# Or via SSH:
+# Try Synology package manager
 sudo synopkg install git
+
+# If that doesn't work, try installing Git Server package
+sudo synopkg install GitServer
+
+# Verify installation
+git --version
 ```
+
+#### Method 3: Via Entware (If Available)
+
+If you have Entware installed:
+
+```bash
+opkg update
+opkg install git-http
+git --version
+```
+
+#### Method 4: Manual Installation (Advanced)
+
+If none of the above work, you may need to:
+1. Download Git for your Synology architecture
+2. Or compile from source (complex, not recommended)
+
+**After installing Git, verify it works:**
+```bash
+git --version
+```
+
+You should see something like: `git version 2.x.x`
 
 ---
 
@@ -80,6 +121,8 @@ cd /volume1/docker/nas-player
 
 ## Step 5: Clone Repository
 
+**Make sure Git is installed first!** (See Step 3, Option B)
+
 On your NAS via SSH:
 
 ```bash
@@ -88,11 +131,18 @@ cd /volume1/docker/nas-player
 # Clone your repository
 git clone https://github.com/sbpang/NAS_MediaCenter.git .
 
+# If you get "fatal: destination path '.' already exists and is not an empty directory"
+# Either remove the directory first, or clone to a different location:
+# git clone https://github.com/sbpang/NAS_MediaCenter.git /volume1/docker/nas-player-temp
+# Then move files: mv /volume1/docker/nas-player-temp/* /volume1/docker/nas-player/
+
 # Verify files are there
 ls -la
 ```
 
 You should see files like `app.py`, `requirements.txt`, `Dockerfile`, etc.
+
+**Note:** If the repository is private, you'll need to authenticate. See the troubleshooting section below.
 
 ---
 
@@ -325,6 +375,34 @@ curl http://localhost:5001/health
 netstat -tuln | grep 5001
 ```
 
+### Git Not Found / Git Command Not Found
+
+If you see `git: command not found`:
+
+```bash
+# Check if Git is installed
+which git
+
+# If not found, install via Package Center (GUI method):
+# 1. Open DSM → Package Center
+# 2. Search for "Git Server"
+# 3. Install it
+
+# Or try command line:
+sudo synopkg install git
+# OR
+sudo synopkg install GitServer
+
+# Verify installation
+git --version
+
+# If Git Server package is installed but git command not found:
+# Check if it's in a different location:
+/usr/local/bin/git --version
+# If that works, you may need to add to PATH or create symlink:
+sudo ln -s /usr/local/bin/git /usr/bin/git
+```
+
 ### Git Pull Fails in Deploy Script
 
 ```bash
@@ -339,18 +417,93 @@ chmod +x deploy.sh
 bash /volume1/docker/nas-player/deploy.sh
 ```
 
-### Port Already in Use
+### Cannot Clone Private Repository
 
-If port 5000 or 5001 is already in use:
+If your repository is private and clone fails with authentication error:
+
+**Option 1: Use Personal Access Token**
+```bash
+# Clone with token (replace YOUR_TOKEN with your GitHub token)
+git clone https://YOUR_TOKEN@github.com/sbpang/NAS_MediaCenter.git .
+
+# Or when prompted:
+# Username: sbpang
+# Password: [paste your GitHub Personal Access Token]
+```
+
+**Option 2: Set up SSH keys (for automated deployments)**
+```bash
+# Generate SSH key
+ssh-keygen -t ed25519 -C "nas-deployment" -f ~/.ssh/id_ed25519
+
+# Display public key
+cat ~/.ssh/id_ed25519.pub
+
+# Add this key to GitHub: https://github.com/settings/keys
+# Then clone using SSH:
+git clone git@github.com:sbpang/NAS_MediaCenter.git .
+```
+
+### Port Already in Use (Critical Error)
+
+If you see: `Error starting userland proxy: listen tcp4 0.0.0.0:5000: bind: address already in use`
+
+**This means port 5000 is already being used by another service.**
+
+#### Solution 1: Find and Stop the Service Using Port 5000
 
 ```bash
-# Find what's using the port
+# Find what's using port 5000
 netstat -tuln | grep 5000
+# OR
+lsof -i :5000
+# OR
+ss -tulpn | grep 5000
 
-# Or change ports in docker-compose.webhook.yml
-nano docker-compose.webhook.yml
-# Change "5000:5000" to "5002:5000" etc.
+# Check if there's already a Docker container using it
+docker ps -a | grep 5000
+
+# If it's a Docker container, stop it:
+docker stop <container_name>
+docker rm <container_name>
+
+# If it's a Python process (maybe you ran app.py directly):
+ps aux | grep "app.py"
+# Kill it:
+pkill -f "python.*app.py"
+# OR if you know the PID:
+kill <PID>
 ```
+
+#### Solution 2: Use a Different Port (Quick Fix)
+
+Change the port mapping in `docker-compose.webhook.yml`:
+
+```bash
+cd /volume1/docker/nas-player
+nano docker-compose.webhook.yml
+```
+
+Change line 11 from:
+```yaml
+      - "5000:5000"
+```
+To (for example, using port 5002):
+```yaml
+      - "5002:5000"
+```
+
+This means:
+- External port: 5002 (access via `http://NAS_IP:5002`)
+- Internal container port: 5000 (app still runs on 5000 inside container)
+
+**After changing, save and restart:**
+```bash
+docker-compose -f docker-compose.webhook.yml down
+docker-compose -f docker-compose.webhook.yml up -d --build
+```
+
+**Don't forget to update your firewall rules and GitHub webhook URL if needed!**
 
 ### Permission Issues
 
