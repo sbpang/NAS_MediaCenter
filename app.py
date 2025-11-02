@@ -58,6 +58,25 @@ def get_artist_icon(artist_name):
         return send_file(str(icon_path), mimetype='image/jpeg')
     return jsonify({'error': 'Icon not found'}), 404
 
+def load_title_mapping(artist_name):
+    """Load title mapping from title.json file"""
+    title_file = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / 'title.json'
+    
+    if not title_file.exists():
+        return {}
+    
+    try:
+        with open(title_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # title.json structure: {"ArtistName": {"CODE": "Title", ...}}
+            if artist_name in data:
+                return data[artist_name]
+            # Fallback: if structure is flat {"CODE": "Title"}
+            return data
+    except (json.JSONDecodeError, KeyError, IOError) as e:
+        print(f"Error loading title.json for {artist_name}: {e}")
+        return {}
+
 @app.route('/api/artists/<artist_name>/videos')
 def get_artist_videos(artist_name):
     """Get all videos for a specific artist"""
@@ -65,6 +84,9 @@ def get_artist_videos(artist_name):
     
     if not artist_path.exists():
         return jsonify({'error': 'Artist not found'}), 404
+    
+    # Load title mappings from title.json
+    title_mapping = load_title_mapping(artist_name)
     
     videos = []
     
@@ -91,8 +113,12 @@ def get_artist_videos(artist_name):
                         poster = f'/api/video/{artist_name}/{item.name}/poster'
             
             if media_files:
+                # Get title from mapping, fallback to code if not found
+                video_title = title_mapping.get(item.name, item.name)
+                
                 videos.append({
                     'code': item.name,
+                    'title': video_title,
                     'media': media_files,
                     'fanart': fanart,
                     'poster': poster

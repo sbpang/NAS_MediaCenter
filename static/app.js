@@ -116,19 +116,32 @@ async function selectArtist(artistName) {
     }
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function renderVideos(videos) {
     videosGrid.innerHTML = videos.map(video => {
         const primaryMedia = video.media[0];
         const poster = video.poster || video.fanart;
+        // Use title if available, fallback to code
+        const displayTitle = video.title || video.code;
+        const showCode = video.title && video.title !== video.code;
+        const escapedTitle = escapeHtml(displayTitle);
+        const escapedCode = escapeHtml(video.code);
+        const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
         
         return `
-            <div class="video-card" onclick="playVideo('${currentArtist}', '${video.code}', '${primaryMedia.filename}', '${primaryMedia.type}')">
+            <div class="video-card" onclick="playVideo('${escapeHtml(currentArtist)}', '${escapedCode}', '${escapeHtml(primaryMedia.filename)}', '${primaryMedia.type}')">
                 ${poster ? 
-                    `<img src="${poster}" alt="${video.code}" onerror="this.parentElement.innerHTML='<div class=\\'card-placeholder\\'>🎬</div><div class=\\'card-info\\'><h3>${video.code}</h3><p>${video.media.length} file(s)</p></div>'">` :
+                    `<img src="${poster}" alt="${escapedTitle}" onerror="this.parentElement.innerHTML='<div class=\\'card-placeholder\\'>🎬</div><div class=\\'card-info\\'><h3>${escapedTitle}</h3>${codeLine}<p>${video.media.length} file(s)</p></div>'">` :
                     `<div class="card-placeholder">🎬</div>`
                 }
                 <div class="card-info">
-                    <h3>${video.code}</h3>
+                    <h3>${escapedTitle}</h3>
+                    ${codeLine}
                     <p>${video.media.length} file(s)</p>
                 </div>
             </div>
@@ -139,7 +152,10 @@ function renderVideos(videos) {
 function playVideo(artistName, videoCode, filename, mediaType) {
     const streamUrl = `${API_BASE}/stream/${encodeURIComponent(artistName)}/${encodeURIComponent(videoCode)}/${encodeURIComponent(filename)}`;
     
-    playerInfo.textContent = `${artistName} - ${videoCode} - ${filename}`;
+    // Find video title for display
+    const video = allVideos.find(v => v.code === videoCode);
+    const displayTitle = video && video.title ? video.title : videoCode;
+    playerInfo.textContent = `${artistName} - ${displayTitle}`;
     
     if (mediaType === 'video') {
         videoPlayer.style.display = 'block';
