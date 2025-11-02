@@ -194,13 +194,13 @@ class JavMetadataScraper:
                         soup = BeautifulSoup(response.text, 'html.parser')
                         
                         # Find product titles (multiple selectors like JavSP)
-                    title_selectors = [
-                        'p.tmb img[alt]',
-                        'div.m-box dl dt a',
-                        'h3 a',
-                        'a[href*="/detail/"]',
-                    ]
-                    
+                        title_selectors = [
+                            'p.tmb img[alt]',
+                            'div.m-box dl dt a',
+                            'h3 a',
+                            'a[href*="/detail/"]',
+                        ]
+                        
                         for selector in title_selectors:
                             title_elem = soup.select_one(selector)
                             if title_elem:
