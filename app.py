@@ -200,13 +200,15 @@ def update_missing_titles():
     Auto-update title.json for missing videos
     Body: {
         "artist_name": "optional - update specific artist",
-        "placeholder": "optional - placeholder title for missing entries"
+        "placeholder": "optional - placeholder title for missing entries",
+        "scrape_real_titles": true/false - if true, scrapes real titles (JavSP-style)
     }
     """
     try:
         data = request.get_json() or {}
         artist_name = data.get('artist_name')
         placeholder = data.get('placeholder', '[Title Missing]')
+        scrape_real = data.get('scrape_real_titles', False)
         
         updater = TitleUpdater(VIDEO_SERVER_PATH)
         
@@ -214,14 +216,34 @@ def update_missing_titles():
             # Update specific artist
             missing = updater.find_missing_titles(artist_name)
             if missing:
-                updates = {code: placeholder for code in missing}
-                updater.update_title_json(artist_name, updates)
-                return jsonify({
-                    'status': 'success',
-                    'artist': artist_name,
-                    'updated': len(updates),
-                    'codes': missing
-                })
+                if scrape_real:
+                    # Scrape real titles (JavSP-style)
+                    successful = updater.scrape_and_update_titles(artist_name, missing)
+                    # Fill remaining with placeholder
+                    remaining = [code for code in missing if code not in successful]
+                    if remaining and placeholder:
+                        placeholder_updates = {code: placeholder for code in remaining}
+                        updater.update_title_json(artist_name, placeholder_updates)
+                    
+                    return jsonify({
+                        'status': 'success',
+                        'artist': artist_name,
+                        'scraped': len(successful),
+                        'placeholder_added': len(remaining) if placeholder else 0,
+                        'total_updated': len(successful) + (len(remaining) if placeholder else 0),
+                        'scraped_codes': list(successful.keys()),
+                        'placeholder_codes': remaining if placeholder else []
+                    })
+                else:
+                    # Use placeholder
+                    updates = {code: placeholder for code in missing}
+                    updater.update_title_json(artist_name, updates)
+                    return jsonify({
+                        'status': 'success',
+                        'artist': artist_name,
+                        'updated': len(updates),
+                        'codes': missing
+                    })
             else:
                 return jsonify({
                     'status': 'success',
@@ -231,15 +253,43 @@ def update_missing_titles():
                 })
         else:
             # Update all artists
-            results = updater.auto_update_all_artists(placeholder_title=placeholder)
+            results = updater.auto_update_all_artists(
+                placeholder_title=placeholder,
+                scrape_real_titles=scrape_real
+            )
             total_updated = sum(len(codes) for codes in results.values())
             
             return jsonify({
                 'status': 'success',
                 'artists_updated': len(results),
                 'total_updated': total_updated,
+                'scrape_mode': 'real titles' if scrape_real else 'placeholder',
                 'details': results
             })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/titles/<artist_name>/scrape', methods=['POST'])
+def scrape_titles_for_artist(artist_name):
+    """
+    Scrape real titles for missing videos (JavSP-style)
+    Body: {
+        "codes": ["CODE1", "CODE2"] - optional, scrapes all missing if not provided
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        codes = data.get('codes')
+        
+        updater = TitleUpdater(VIDEO_SERVER_PATH)
+        successful = updater.scrape_and_update_titles(artist_name, codes)
+        
+        return jsonify({
+            'status': 'success',
+            'artist': artist_name,
+            'scraped': len(successful),
+            'titles': successful
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

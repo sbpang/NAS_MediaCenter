@@ -2,11 +2,13 @@
 """
 Auto Title Updater - Detects missing titles and updates title.json
 Similar to JavSP's metadata detection, but simpler and integrated
+Now includes real title scraping like JavSP
 """
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from jav_scraper import JavMetadataScraper
 
 class TitleUpdater:
     def __init__(self, video_server_path: str):
@@ -92,13 +94,15 @@ class TitleUpdater:
             print(f"Error writing title.json: {e}")
             return False
     
-    def auto_update_all_artists(self, placeholder_title: str = None) -> Dict[str, List[str]]:
+    def auto_update_all_artists(self, placeholder_title: str = None, scrape_real_titles: bool = False) -> Dict[str, List[str]]:
         """
         Scan all artists and find missing titles
         If placeholder_title is provided, auto-add missing entries with placeholder
+        If scrape_real_titles is True, try to fetch real titles from scrapers (like JavSP)
         Returns: Dict mapping artist_name -> list of missing codes
         """
         results = {}
+        scraper = JavMetadataScraper() if scrape_real_titles else None
         
         if not self.artists_path.exists():
             return results
@@ -110,13 +114,52 @@ class TitleUpdater:
                 
                 if missing:
                     results[artist_name] = missing
+                    updates = {}
                     
-                    # Auto-update with placeholder if provided
-                    if placeholder_title:
+                    if scrape_real_titles and scraper:
+                        # Scrape real titles from multiple sources (JavSP-style)
+                        print(f"Scraping titles for {artist_name} ({len(missing)} videos)...")
+                        scraped_titles = scraper.batch_scrape(missing, delay=1.5)
+                        
+                        for code, title in scraped_titles.items():
+                            if title:
+                                updates[code] = title
+                            elif placeholder_title:
+                                updates[code] = placeholder_title
+                    elif placeholder_title:
+                        # Use placeholder for all missing
                         updates = {code: placeholder_title for code in missing}
+                    
+                    if updates:
                         self.update_title_json(artist_name, updates)
+                        print(f"Updated {len(updates)} titles for {artist_name}")
         
         return results
+    
+    def scrape_and_update_titles(self, artist_name: str, codes: List[str] = None) -> Dict[str, str]:
+        """
+        Scrape real titles for codes and update title.json
+        If codes not provided, finds missing titles automatically
+        Returns: Dict of successfully scraped titles
+        """
+        if codes is None:
+            codes = self.find_missing_titles(artist_name)
+        
+        if not codes:
+            return {}
+        
+        scraper = JavMetadataScraper()
+        print(f"Scraping titles for {len(codes)} videos...")
+        scraped_titles = scraper.batch_scrape(codes, delay=1.5)
+        
+        # Filter out None values
+        successful_updates = {code: title for code, title in scraped_titles.items() if title}
+        
+        if successful_updates:
+            self.update_title_json(artist_name, successful_updates)
+            print(f"Successfully updated {len(successful_updates)} titles")
+        
+        return successful_updates
     
     def get_all_missing_summary(self) -> Dict[str, Dict]:
         """Get summary of all missing titles across all artists"""

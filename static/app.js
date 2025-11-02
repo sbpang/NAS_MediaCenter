@@ -119,7 +119,7 @@ async function selectArtist(artistName) {
     }
 }
 
-async function autoUpdateMissingTitles(artistName) {
+async function autoUpdateMissingTitles(artistName, scrapeReal = false) {
     try {
         // Check for missing titles
         const checkResponse = await fetch(`${API_BASE}/titles/${encodeURIComponent(artistName)}/missing`);
@@ -127,9 +127,13 @@ async function autoUpdateMissingTitles(artistName) {
         
         const checkData = await checkResponse.json();
         
-        // If there are missing titles, auto-update with placeholder
+        // If there are missing titles, auto-update
         if (checkData.missing_count > 0) {
-            console.log(`Found ${checkData.missing_count} videos without titles for ${artistName}, auto-updating...`);
+            if (scrapeReal) {
+                console.log(`Found ${checkData.missing_count} videos without titles, scraping real titles (JavSP-style)...`);
+            } else {
+                console.log(`Found ${checkData.missing_count} videos without titles, auto-updating with placeholder...`);
+            }
             
             const updateResponse = await fetch(`${API_BASE}/titles/update`, {
                 method: 'POST',
@@ -138,13 +142,21 @@ async function autoUpdateMissingTitles(artistName) {
                 },
                 body: JSON.stringify({
                     artist_name: artistName,
-                    placeholder: '[Title Missing - Update Needed]'
+                    placeholder: '[Title Missing - Update Needed]',
+                    scrape_real_titles: scrapeReal
                 })
             });
             
             if (updateResponse.ok) {
                 const updateData = await updateResponse.json();
-                console.log(`Auto-updated ${updateData.updated} missing titles`);
+                if (scrapeReal && updateData.scraped > 0) {
+                    console.log(`Successfully scraped ${updateData.scraped} real titles (JavSP-style)`);
+                    if (updateData.placeholder_added > 0) {
+                        console.log(`Added ${updateData.placeholder_added} placeholders for failed scrapes`);
+                    }
+                } else {
+                    console.log(`Auto-updated ${updateData.updated || updateData.total_updated} missing titles`);
+                }
                 
                 // Reload videos to show updated titles
                 const videosResponse = await fetch(`${API_BASE}/artists/${encodeURIComponent(artistName)}/videos`);
