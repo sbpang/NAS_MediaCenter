@@ -9,7 +9,13 @@ import requests
 from typing import Optional, Dict, List
 from urllib.parse import quote, urljoin
 import json
-from bs4 import BeautifulSoup
+
+try:
+    from bs4 import BeautifulSoup
+    BEAUTIFULSOUP_AVAILABLE = True
+except ImportError:
+    BEAUTIFULSOUP_AVAILABLE = False
+    print("Warning: beautifulsoup4 not installed. HTML parsing will be limited.")
 
 class JavMetadataScraper:
     """
@@ -71,6 +77,18 @@ class JavMetadataScraper:
             if response.status_code != 200:
                 return None
             
+            if not BEAUTIFULSOUP_AVAILABLE:
+                # Fallback to regex if BeautifulSoup not available
+                detail_match = re.search(r'href="(/v/\d+)"', response.text)
+                if detail_match:
+                    detail_url = urljoin('https://javdb.com', detail_match.group(1))
+                    detail_response = self.session.get(detail_url, timeout=self.timeout)
+                    if detail_response.status_code == 200:
+                        title_match = re.search(r'<strong[^>]*>([^<]+)</strong>', detail_response.text)
+                        if title_match:
+                            return title_match.group(1).strip()
+                return None
+            
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Find first result link
@@ -124,6 +142,13 @@ class JavMetadataScraper:
             if response.status_code != 200:
                 return None
             
+            if not BEAUTIFULSOUP_AVAILABLE:
+                # Fallback to regex
+                title_match = re.search(r'<div[^>]*class="video"[^>]*>.*?<a[^>]+>([^<]+)</a>', response.text, re.DOTALL)
+                if title_match:
+                    return title_match.group(1).strip()
+                return None
+            
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Find video entries
@@ -165,9 +190,10 @@ class JavMetadataScraper:
                     if response.status_code != 200:
                         continue
                     
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    
-                    # Find product titles (multiple selectors like JavSP)
+                    if BEAUTIFULSOUP_AVAILABLE:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        
+                        # Find product titles (multiple selectors like JavSP)
                     title_selectors = [
                         'p.tmb img[alt]',
                         'div.m-box dl dt a',
@@ -175,14 +201,14 @@ class JavMetadataScraper:
                         'a[href*="/detail/"]',
                     ]
                     
-                    for selector in title_selectors:
-                        title_elem = soup.select_one(selector)
-                        if title_elem:
-                            title = title_elem.get('alt') or title_elem.get_text(strip=True)
-                            if title and len(title) > 5:
-                                return title
+                        for selector in title_selectors:
+                            title_elem = soup.select_one(selector)
+                            if title_elem:
+                                title = title_elem.get('alt') or title_elem.get_text(strip=True)
+                                if title and len(title) > 5:
+                                    return title
                     
-                    # Fallback: regex search in HTML
+                    # Fallback: regex search in HTML (works with or without BeautifulSoup)
                     title_match = re.search(r'alt="([^"]{10,})"', response.text)
                     if title_match:
                         title = title_match.group(1).strip()
