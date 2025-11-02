@@ -47,7 +47,10 @@ if [ "$USE_DOCKER" = "true" ] && [ -f "docker-compose.yml" ]; then
 elif [ "$USE_DOCKER" = "true" ] && [ -f "docker-compose.webhook.yml" ]; then
     echo -e "${YELLOW}Restarting Docker containers (with webhook)...${NC}"
     cd "$DEPLOY_DIR"
-    docker-compose -f docker-compose.webhook.yml restart nas-player || docker-compose -f docker-compose.webhook.yml up -d --build nas-player
+    # Restart to pick up volume-mounted code changes
+    docker-compose -f docker-compose.webhook.yml restart nas-player
+    # Also restart webhook in case it needs updating
+    docker-compose -f docker-compose.webhook.yml restart webhook 2>/dev/null || true
     echo -e "${GREEN}Docker containers restarted${NC}"
 else
     # If not using Docker, restart the service directly
