@@ -1,8 +1,9 @@
-from flask import Flask, jsonify, send_file, send_from_directory
+from flask import Flask, jsonify, send_file, send_from_directory, request
 from flask_cors import CORS
 import os
 import json
 from pathlib import Path
+from title_updater import TitleUpdater
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)  # Enable CORS for all routes
@@ -174,6 +175,88 @@ def stream_media(artist_name, video_code, filename):
         conditional=True,
         as_attachment=False
     )
+
+@app.route('/api/titles/check', methods=['GET'])
+def check_missing_titles():
+    """Check for videos missing titles in title.json"""
+    try:
+        updater = TitleUpdater(VIDEO_SERVER_PATH)
+        summary = updater.get_all_missing_summary()
+        
+        total_missing = sum(info['missing_count'] for info in summary.values())
+        
+        return jsonify({
+            'status': 'success',
+            'artists_checked': len(summary),
+            'total_missing': total_missing,
+            'details': summary
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/titles/update', methods=['POST'])
+def update_missing_titles():
+    """
+    Auto-update title.json for missing videos
+    Body: {
+        "artist_name": "optional - update specific artist",
+        "placeholder": "optional - placeholder title for missing entries"
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        artist_name = data.get('artist_name')
+        placeholder = data.get('placeholder', '[Title Missing]')
+        
+        updater = TitleUpdater(VIDEO_SERVER_PATH)
+        
+        if artist_name:
+            # Update specific artist
+            missing = updater.find_missing_titles(artist_name)
+            if missing:
+                updates = {code: placeholder for code in missing}
+                updater.update_title_json(artist_name, updates)
+                return jsonify({
+                    'status': 'success',
+                    'artist': artist_name,
+                    'updated': len(updates),
+                    'codes': missing
+                })
+            else:
+                return jsonify({
+                    'status': 'success',
+                    'artist': artist_name,
+                    'updated': 0,
+                    'message': 'No missing titles'
+                })
+        else:
+            # Update all artists
+            results = updater.auto_update_all_artists(placeholder_title=placeholder)
+            total_updated = sum(len(codes) for codes in results.values())
+            
+            return jsonify({
+                'status': 'success',
+                'artists_updated': len(results),
+                'total_updated': total_updated,
+                'details': results
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/titles/<artist_name>/missing', methods=['GET'])
+def get_missing_titles_for_artist(artist_name):
+    """Get list of missing titles for a specific artist"""
+    try:
+        updater = TitleUpdater(VIDEO_SERVER_PATH)
+        missing = updater.find_missing_titles(artist_name)
+        
+        return jsonify({
+            'artist': artist_name,
+            'missing_count': len(missing),
+            'missing_codes': missing
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1699, debug=True)

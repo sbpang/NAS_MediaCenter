@@ -104,6 +104,9 @@ async function selectArtist(artistName) {
         allVideos = await response.json();
         renderVideos(allVideos);
         
+        // Auto-check for missing titles and update
+        await autoUpdateMissingTitles(artistName);
+        
         document.getElementById('currentArtistName').textContent = artistName;
         artistsSection.style.display = 'none';
         videosSection.style.display = 'block';
@@ -113,6 +116,47 @@ async function selectArtist(artistName) {
         console.error('Error loading videos:', error);
         hideLoading();
         alert('Failed to load videos: ' + error.message);
+    }
+}
+
+async function autoUpdateMissingTitles(artistName) {
+    try {
+        // Check for missing titles
+        const checkResponse = await fetch(`${API_BASE}/titles/${encodeURIComponent(artistName)}/missing`);
+        if (!checkResponse.ok) return;
+        
+        const checkData = await checkResponse.json();
+        
+        // If there are missing titles, auto-update with placeholder
+        if (checkData.missing_count > 0) {
+            console.log(`Found ${checkData.missing_count} videos without titles for ${artistName}, auto-updating...`);
+            
+            const updateResponse = await fetch(`${API_BASE}/titles/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    artist_name: artistName,
+                    placeholder: '[Title Missing - Update Needed]'
+                })
+            });
+            
+            if (updateResponse.ok) {
+                const updateData = await updateResponse.json();
+                console.log(`Auto-updated ${updateData.updated} missing titles`);
+                
+                // Reload videos to show updated titles
+                const videosResponse = await fetch(`${API_BASE}/artists/${encodeURIComponent(artistName)}/videos`);
+                if (videosResponse.ok) {
+                    allVideos = await videosResponse.json();
+                    renderVideos(allVideos);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error auto-updating titles:', error);
+        // Fail silently - don't interrupt user experience
     }
 }
 
