@@ -23,10 +23,18 @@ echo -e "${YELLOW}Starting deployment...${NC}"
 # Navigate to deployment directory
 cd "$DEPLOY_DIR"
 
+# Fix Git ownership issue (common on Synology NAS)
+if [ -d ".git" ]; then
+    echo -e "${YELLOW}Configuring Git safe directory...${NC}"
+    git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
+fi
+
 # Check if it's a git repository
 if [ ! -d ".git" ]; then
     echo -e "${YELLOW}Not a git repository. Cloning...${NC}"
     git clone "$GIT_REPO_URL" .
+    # Configure safe directory for newly cloned repo
+    git config --global --add safe.directory "$DEPLOY_DIR" 2>/dev/null || true
 else
     echo -e "${GREEN}Pulling latest changes...${NC}"
     git fetch origin
