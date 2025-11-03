@@ -82,14 +82,18 @@ async function loadArtists() {
 function renderArtists(artists) {
     artistsGrid.innerHTML = artists.map(artist => {
         const escapedName = escapeHtml(artist.name);
+        // Escape for HTML attributes
+        const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const attrName = attrEscape(artist.name);
+        
         let imageHtml = '';
         if (artist.icon) {
-            const escapedIcon = escapeHtml(artist.icon);
+            const escapedIcon = attrEscape(artist.icon);
             imageHtml = `<img src="${escapedIcon}" alt="${escapedName}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
         }
         
         return `
-        <div class="artist-card" onclick="selectArtist('${escapedName}')">
+        <div class="artist-card" data-artist="${attrName}">
             ${artist.icon ? imageHtml : ''}
             ${artist.icon ? `<div class="card-placeholder" style="display:none">🎤</div>` : `<div class="card-placeholder">🎤</div>`}
             <div class="card-info">
@@ -98,6 +102,14 @@ function renderArtists(artists) {
         </div>
         `;
     }).join('');
+    
+    // Add event listeners for artist cards
+    document.querySelectorAll('.artist-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const artistName = card.getAttribute('data-artist');
+            selectArtist(artistName);
+        });
+    });
 }
 
 async function selectArtist(artistName) {
