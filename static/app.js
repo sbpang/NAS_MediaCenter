@@ -72,47 +72,67 @@ async function loadArtists() {
         hideLoading();
     } catch (error) {
         console.error('Error loading artists:', error);
-        artistsGrid.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">
-            Error loading artists: ${error.message}
-        </div>`;
+        const errorDiv = document.createElement('div');
+        errorDiv.style.color = '#ef4444';
+        errorDiv.style.textAlign = 'center';
+        errorDiv.style.padding = '20px';
+        errorDiv.textContent = `Error loading artists: ${error.message}`;
+        artistsGrid.innerHTML = '';
+        artistsGrid.appendChild(errorDiv);
         hideLoading();
     }
 }
 
 function renderArtists(artists) {
-    artistsGrid.innerHTML = artists.map(artist => {
-        const escapedName = escapeHtml(artist.name);
-        const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        const attrName = attrEscape(artist.name);
+    // Clear grid
+    artistsGrid.innerHTML = '';
+    
+    artists.forEach(artist => {
+        // Create card container
+        const card = document.createElement('div');
+        card.className = 'artist-card';
+        card.setAttribute('data-artist', artist.name);
         
-        return `
-        <div class="artist-card" data-artist="${attrName}">
-            ${artist.icon ? `<img class="artist-icon" src="${attrEscape(artist.icon)}" alt="${escapedName}">` : ''}
-            <div class="card-placeholder" style="${artist.icon ? 'display:none' : 'display:flex'}">🎤</div>
-            <div class="card-info">
-                <h3>${escapedName}</h3>
-            </div>
-        </div>
-        `;
-    }).join('');
-    
-    // Add click event listeners using event delegation (avoids quote issues)
-    artistsGrid.querySelectorAll('.artist-card').forEach(card => {
-        card.addEventListener('click', function() {
-            const artistName = this.getAttribute('data-artist');
-            selectArtist(artistName);
-        });
-    });
-    
-    // Handle image errors using event delegation (no inline onerror handlers)
-    artistsGrid.querySelectorAll('.artist-icon').forEach(img => {
-        img.addEventListener('error', function() {
-            this.style.display = 'none';
-            const placeholder = this.nextElementSibling;
-            if (placeholder && placeholder.classList.contains('card-placeholder')) {
+        // Create image if icon exists
+        if (artist.icon) {
+            const img = document.createElement('img');
+            img.className = 'artist-icon';
+            img.src = artist.icon;
+            img.alt = artist.name;
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
                 placeholder.style.display = 'flex';
-            }
+            });
+            card.appendChild(img);
+        }
+        
+        // Create placeholder
+        const placeholder = document.createElement('div');
+        placeholder.className = 'card-placeholder';
+        placeholder.textContent = '🎤';
+        if (artist.icon) {
+            placeholder.style.display = 'none';
+        } else {
+            placeholder.style.display = 'flex';
+        }
+        card.appendChild(placeholder);
+        
+        // Create card info
+        const cardInfo = document.createElement('div');
+        cardInfo.className = 'card-info';
+        
+        const h3 = document.createElement('h3');
+        h3.textContent = artist.name;
+        cardInfo.appendChild(h3);
+        
+        card.appendChild(cardInfo);
+        
+        // Add click handler
+        card.addEventListener('click', () => {
+            selectArtist(artist.name);
         });
+        
+        artistsGrid.appendChild(card);
     });
 }
 
@@ -195,80 +215,91 @@ async function autoUpdateMissingTitles(artistName, scrapeReal = false) {
     }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function renderVideos(videos) {
-    videosGrid.innerHTML = videos.map(video => {
+    // Clear grid
+    videosGrid.innerHTML = '';
+    
+    videos.forEach(video => {
         const primaryMedia = video.media[0];
         const poster = video.poster || video.fanart;
-        // Use title if available, fallback to code
         const displayTitle = video.title || video.code;
         const showCode = video.title && video.title !== video.code;
         
-        // Format date display: show full date if available, otherwise year, otherwise nothing
-        let dateDisplay = '';
-        if (video.year) {
-            if (video.month && video.day) {
-                // Full date: YYYY-MM-DD
-                dateDisplay = `<span class="video-date">${video.year}-${String(video.month).padStart(2, '0')}-${String(video.day).padStart(2, '0')}</span>`;
-            } else if (video.month) {
-                // Year and month: YYYY-MM
-                dateDisplay = `<span class="video-date">${video.year}-${String(video.month).padStart(2, '0')}</span>`;
-            } else {
-                // Year only
-                dateDisplay = `<span class="video-date">${video.year}</span>`;
-            }
+        // Create card container
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.setAttribute('data-artist', currentArtist);
+        card.setAttribute('data-code', video.code);
+        card.setAttribute('data-filename', primaryMedia.filename);
+        card.setAttribute('data-type', primaryMedia.type);
+        
+        // Create image if poster exists
+        if (poster) {
+            const img = document.createElement('img');
+            img.className = 'video-poster';
+            img.src = poster;
+            img.alt = displayTitle;
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
+                placeholder.style.display = 'flex';
+            });
+            card.appendChild(img);
         }
         
-        const escapedTitle = escapeHtml(displayTitle);
-        const escapedCode = escapeHtml(video.code);
-        const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
+        // Create placeholder
+        const placeholder = document.createElement('div');
+        placeholder.className = 'card-placeholder';
+        placeholder.textContent = '🎬';
+        if (poster) {
+            placeholder.style.display = 'none';
+        } else {
+            placeholder.style.display = 'flex';
+        }
+        card.appendChild(placeholder);
         
-        // Use data attributes to avoid quote escaping issues
-        const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        // Create card info
+        const cardInfo = document.createElement('div');
+        cardInfo.className = 'card-info';
         
-        return `
-            <div class="video-card" 
-                 data-artist="${attrEscape(currentArtist)}"
-                 data-code="${attrEscape(video.code)}"
-                 data-filename="${attrEscape(primaryMedia.filename)}"
-                 data-type="${attrEscape(primaryMedia.type)}">
-                ${poster ? `<img class="video-poster" src="${attrEscape(poster)}" alt="${escapedTitle}">` : ''}
-                <div class="card-placeholder" style="${poster ? 'display:none' : 'display:flex'}">🎬</div>
-                <div class="card-info">
-                    <h3>${escapedTitle}</h3>
-                    ${codeLine}
-                    ${dateDisplay}
-                    <p>${video.media.length} file(s)</p>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    // Add click event listeners using event delegation (avoids quote issues)
-    videosGrid.querySelectorAll('.video-card').forEach(card => {
-        card.addEventListener('click', function() {
-            const artist = this.getAttribute('data-artist');
-            const code = this.getAttribute('data-code');
-            const filename = this.getAttribute('data-filename');
-            const type = this.getAttribute('data-type');
-            playVideo(artist, code, filename, type);
-        });
-    });
-    
-    // Handle image errors using event delegation (no inline onerror handlers)
-    videosGrid.querySelectorAll('.video-poster').forEach(img => {
-        img.addEventListener('error', function() {
-            this.style.display = 'none';
-            const placeholder = this.nextElementSibling;
-            if (placeholder && placeholder.classList.contains('card-placeholder')) {
-                placeholder.style.display = 'flex';
+        const h3 = document.createElement('h3');
+        h3.textContent = displayTitle;
+        cardInfo.appendChild(h3);
+        
+        // Add code line if needed
+        if (showCode) {
+            const codeP = document.createElement('p');
+            codeP.className = 'video-code';
+            codeP.textContent = video.code;
+            cardInfo.appendChild(codeP);
+        }
+        
+        // Add date display if available
+        if (video.year) {
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'video-date';
+            if (video.month && video.day) {
+                dateSpan.textContent = `${video.year}-${String(video.month).padStart(2, '0')}-${String(video.day).padStart(2, '0')}`;
+            } else if (video.month) {
+                dateSpan.textContent = `${video.year}-${String(video.month).padStart(2, '0')}`;
+            } else {
+                dateSpan.textContent = String(video.year);
             }
+            cardInfo.appendChild(dateSpan);
+        }
+        
+        // Add file count
+        const fileCountP = document.createElement('p');
+        fileCountP.textContent = `${video.media.length} file(s)`;
+        cardInfo.appendChild(fileCountP);
+        
+        card.appendChild(cardInfo);
+        
+        // Add click handler
+        card.addEventListener('click', () => {
+            playVideo(currentArtist, video.code, primaryMedia.filename, primaryMedia.type);
         });
+        
+        videosGrid.appendChild(card);
     });
 }
 
@@ -321,7 +352,6 @@ function hideLoading() {
     loadingSpinner.style.display = 'none';
 }
 
-// Make functions global if needed (though we use event delegation now)
+// Make functions global if needed
 window.selectArtist = selectArtist;
 window.playVideo = playVideo;
-
