@@ -159,67 +159,33 @@ ls -la /volume1/Video_Server/static/artists/
 ```
 
 **Note:** Adjust the path if your video folder is in a different location. Update the path in:
-- `docker-compose.webhook.yml` (line 14)
+- `docker-compose.yml` (line 12)
 - `app.py` (if needed)
 
 ---
 
-## Step 7: Choose Deployment Method
+## Step 7: Deploy Docker Container
 
-You have two options:
-
-### Method A: Docker with Webhook (Recommended - Automatic Updates)
-
-This will automatically update when you push to GitHub.
-
-#### 7A. Update Webhook Secret
-
-```bash
-cd /volume1/docker/nas-player
-
-# Create a strong secret (save this for later - you'll need it for GitHub)
-# You can generate one with:
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Or manually create one, e.g.: "my-super-secret-webhook-key-2024"
-```
-
-#### 7B. Create Environment File
-
-```bash
-cd /volume1/docker/nas-player
-
-# Create .env file for Docker Compose
-cat > .env << EOF
-WEBHOOK_SECRET=your-super-secret-webhook-key-2024
-DEPLOY_SCRIPT=/app/deploy.sh
-EOF
-
-# Replace 'your-super-secret-webhook-key-2024' with your actual secret
-nano .env  # Edit the file and save your secret
-```
-
-#### 7C. Make Deploy Script Executable
+#### 7A. Make Deploy Script Executable
 
 ```bash
 chmod +x /volume1/docker/nas-player/deploy.sh
 ```
 
-#### 7D. Start Docker Services
+#### 7B. Start Docker Service
 
 ```bash
 cd /volume1/docker/nas-player
 
-# Start both the media player and webhook receiver
-docker-compose -f docker-compose.webhook.yml up -d --build
+# Start the media player container
+docker-compose up -d --build
 ```
 
 This will:
-- Build both Docker containers
+- Build the Docker container
 - Start the media player on port 1699
-- Start the webhook receiver on port 1700
 
-#### 7E. Verify Services Are Running
+#### 7C. Verify Service Is Running
 
 ```bash
 # Check containers
@@ -227,67 +193,128 @@ docker ps
 
 # You should see:
 # - nas-player
-# - nas-player-webhook
 
 # Check logs
 docker logs nas-player
-docker logs nas-player-webhook
-```
-
-#### 7F. Find Your NAS IP Address
-
-```bash
-# Get your NAS IP (you'll need this for GitHub webhook)
-hostname -I
-# Or check in DSM: Control Panel → Network → Network Interface
 ```
 
 ---
 
-## Step 8: Configure GitHub Webhook (For Automatic Deployment)
+## Step 8: Set Up Automatic Deployment (Choose One Method)
 
-### 8A. Access GitHub Webhook Settings
+Since your NAS is not exposed to the internet, GitHub webhooks won't work. Here are alternative deployment methods:
 
-1. Go to: `https://github.com/sbpang/NAS_MediaCenter`
-2. Click **Settings** tab
-3. Click **Webhooks** in the left sidebar
-4. Click **Add webhook**
+### Method A: Cron Job - Periodic Auto-Update (Recommended)
 
-### 8B. Configure Webhook
+Set up a cron job to periodically check and pull updates:
 
-Fill in the form:
+```bash
+cd /volume1/docker/nas-player
 
-- **Payload URL:** 
-  ```
-  http://YOUR_NAS_IP:1700/webhook
-  ```
-  Replace `YOUR_NAS_IP` with your NAS IP address (e.g., `http://192.168.1.100:1700/webhook`)
+# Edit crontab
+crontab -e
 
-- **Content type:** `application/json`
+# Add this line to check for updates every 30 minutes:
+*/30 * * * * cd /volume1/docker/nas-player && /volume1/docker/nas-player/deploy.sh >> /volume1/docker/nas-player/deploy.log 2>&1
 
-- **Secret:** 
-  Enter the same secret you set in Step 7A (the one in your `.env` file)
+# Or check every hour:
+0 * * * * cd /volume1/docker/nas-player && /volume1/docker/nas-player/deploy.sh >> /volume1/docker/nas-player/deploy.log 2>&1
 
-- **Which events would you like to trigger this webhook?**
-  Select: **Just the push event**
+# Or check once per day at 3 AM:
+0 3 * * * cd /volume1/docker/nas-player && /volume1/docker/nas-player/deploy.sh >> /volume1/docker/nas-player/deploy.log 2>&1
+```
 
-- **Active:** ✓ Check this box
+**View deployment logs:**
+```bash
+tail -f /volume1/docker/nas-player/deploy.log
+```
 
-- Click **Add webhook**
+### Method B: Synology Task Scheduler (GUI Method)
 
-### 8C. Test the Webhook
+1. **Open DSM → Control Panel → Task Scheduler**
+2. **Create → Scheduled Task → User-defined script**
+3. **General:**
+   - Task: `NAS Media Player Auto-Update`
+   - User: `admin`
+4. **Schedule:**
+   - Frequency: `Daily` or `Weekly`
+   - Time: Your preferred time (e.g., 3:00 AM)
+5. **Task Settings:**
+   - **Run command:**
+     ```bash
+     /volume1/docker/nas-player/deploy.sh
+     ```
+6. **Save** and enable the task
 
-GitHub will send a test ping. You can check if it worked:
+### Method C: Manual Deployment
 
-1. In GitHub, click on the webhook you just created
-2. Scroll down to **Recent Deliveries**
-3. You should see a ping event - click on it
-4. Check if it returned a 200 status
+Simply SSH into your NAS and run:
 
-**Note:** If you get an error, check:
-- Firewall on your NAS allows port 1700
-- Webhook service is running: `docker logs nas-player-webhook`
-- Your router allows incoming connections (or use a VPN/tailscale)
+```bash
+cd /volume1/docker/nas-player
+git pull origin main
+docker-compose restart nas-player
+```
+
+### Method D: SSH from Local Machine (Automated Script)
+
+Create a script on your local machine that SSH's into NAS and deploys:
+
+**On your local machine (Windows PowerShell script):**
+```powershell
+# deploy-to-nas.ps1
+ssh admin@YOUR_NAS_IP "cd /volume1/docker/nas-player && git pull origin main && docker-compose restart nas-player"
+```
+
+Then run after pushing:
+```powershell
+git push origin main
+.\deploy-to-nas.ps1
+```
+
+**On your local machine (Linux/Mac bash script):**
+```bash
+#!/bin/bash
+# deploy-to-nas.sh
+ssh admin@YOUR_NAS_IP "cd /volume1/docker/nas-player && git pull origin main && docker-compose restart nas-player"
+```
+
+Make executable and run:
+```bash
+chmod +x deploy-to-nas.sh
+git push origin main
+./deploy-to-nas.sh
+```
+
+### Method E: GitHub Actions with SSH (Advanced)
+
+Use GitHub Actions to SSH into your NAS after pushing:
+
+Create `.github/workflows/deploy.yml`:
+```yaml
+name: Deploy to NAS
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.NAS_IP }}
+          username: admin
+          key: ${{ secrets.NAS_SSH_KEY }}
+          script: |
+            cd /volume1/docker/nas-player
+            git pull origin main
+            docker-compose restart nas-player
+```
+
+**Setup:** Add secrets in GitHub repo settings:
+- `NAS_IP`: Your NAS IP address
+- `NAS_SSH_KEY`: Your private SSH key
 
 ---
 
@@ -303,19 +330,7 @@ GitHub will send a test ping. You can check if it worked:
    - **Action:** Allow
    - **Source IP:** Your local network (e.g., `192.168.1.0/24`)
 
-3. **Create Another Rule:**
-   - **Name:** Webhook Receiver
-   - **Port:** 1700
-   - **Protocol:** TCP
-   - **Action:** Allow
-   - **Source IP:** 
-     - For local network only: `192.168.1.0/24`
-     - For GitHub webhooks, you may need to allow all or use a service like ngrok
-
-**Security Note:** For production, consider:
-- Using a VPN (like Tailscale) instead of exposing port 1700 publicly
-- Using Synology's built-in reverse proxy with SSL
-- Restricting access to specific IP ranges
+**Security Note:** Port 1699 only needs to be accessible on your local network.
 
 ---
 
@@ -330,6 +345,8 @@ GitHub will send a test ping. You can check if it worked:
 
 ### 10B. Test Auto-Deployment
 
+**If using Cron Job or Task Scheduler:**
+
 1. Make a small change to any file (locally)
 2. Commit and push to GitHub:
    ```bash
@@ -338,12 +355,22 @@ GitHub will send a test ping. You can check if it worked:
    git push origin main
    ```
 
-3. Check webhook delivery in GitHub (Settings → Webhooks → Recent Deliveries)
-4. Check deployment logs on NAS:
+3. Wait for the scheduled check (or trigger manually):
    ```bash
-   docker logs nas-player-webhook
+   # On NAS, manually trigger deployment
+   cd /volume1/docker/nas-player
+   bash deploy.sh
    ```
-5. Your NAS should automatically pull and restart the service!
+
+4. Check deployment logs:
+   ```bash
+   tail -20 /volume1/docker/nas-player/deploy.log
+   ```
+
+5. Verify container restarted:
+   ```bash
+   docker logs nas-player | tail -10
+   ```
 
 ---
 
@@ -362,17 +389,20 @@ docker logs nas-player
 docker restart nas-player
 ```
 
-### Webhook Not Working
+### Cron Job Not Running
 
 ```bash
-# Check webhook container logs
-docker logs nas-player-webhook
+# Check if cron is running
+ps aux | grep cron
 
-# Verify webhook is listening
-curl http://localhost:1700/health
+# Check cron logs
+grep CRON /var/log/syslog
 
-# Check if port is open
-netstat -tuln | grep 1700
+# Verify crontab entry
+crontab -l
+
+# Test deploy script manually
+bash /volume1/docker/nas-player/deploy.sh
 ```
 
 ### Git Not Found / Git Command Not Found
@@ -477,14 +507,14 @@ kill <PID>
 
 #### Solution 2: Use a Different Port (Quick Fix)
 
-Change the port mapping in `docker-compose.webhook.yml`:
+Change the port mapping in `docker-compose.yml`:
 
 ```bash
 cd /volume1/docker/nas-player
-nano docker-compose.webhook.yml
+nano docker-compose.yml
 ```
 
-Change line 11 from:
+Change line 8 from:
 ```yaml
       - "1699:1699"
 ```
@@ -499,11 +529,11 @@ This means:
 
 **After changing, save and restart:**
 ```bash
-docker-compose -f docker-compose.webhook.yml down
-docker-compose -f docker-compose.webhook.yml up -d --build
+docker-compose down
+docker-compose up -d --build
 ```
 
-**Don't forget to update your firewall rules and GitHub webhook URL if needed!**
+**Don't forget to update your firewall rules if needed!**
 
 ### Permission Issues
 
@@ -545,21 +575,23 @@ If you prefer not to use Docker:
 # Media player logs
 docker logs -f nas-player
 
-# Webhook logs
-docker logs -f nas-player-webhook
+# Deployment logs
+tail -f /volume1/docker/nas-player/deploy.log
 ```
 
 ### Restart Services
 ```bash
 cd /volume1/docker/nas-player
-docker-compose -f docker-compose.webhook.yml restart
+docker-compose restart
 ```
 
 ### Update Manually
 ```bash
 cd /volume1/docker/nas-player
 git pull origin main
-docker-compose -f docker-compose.webhook.yml up -d --build
+docker-compose restart nas-player
+# Or rebuild if needed:
+docker-compose up -d --build
 ```
 
 ---
@@ -578,23 +610,26 @@ Once everything is working:
 ## Quick Reference Commands
 
 ```bash
-# Start services
+# Start service
 cd /volume1/docker/nas-player
-docker-compose -f docker-compose.webhook.yml up -d
+docker-compose up -d
 
-# Stop services
-docker-compose -f docker-compose.webhook.yml down
+# Stop service
+docker-compose down
 
 # View logs
 docker logs nas-player
-docker logs nas-player-webhook
 
-# Restart services
-docker-compose -f docker-compose.webhook.yml restart
+# Restart service
+docker-compose restart nas-player
 
 # Manual deployment
 cd /volume1/docker/nas-player
 bash deploy.sh
+
+# Check cron job
+crontab -l
+tail -f /volume1/docker/nas-player/deploy.log
 ```
 
 ---

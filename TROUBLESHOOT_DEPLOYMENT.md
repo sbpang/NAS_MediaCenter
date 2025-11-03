@@ -1,25 +1,22 @@
-# Troubleshooting: DS1621+ Not Getting Latest Code
+# Deployment Troubleshooting Guide for DS1621+
 
-If your NAS isn't updating after pushing to GitHub, follow these steps:
+This guide provides steps to diagnose and resolve common issues encountered during deployment when your NAS is not exposed to the internet.
 
 ## Quick Diagnosis (Run on NAS via SSH)
 
 ```bash
 cd /volume1/docker/nas-player
 
-# 1. Check if webhook received the push
-docker logs nas-player-webhook | tail -20
-
-# 2. Check if git has the latest code
+# 1. Check if git has the latest code
 git fetch origin
 git log HEAD..origin/main --oneline
 # If there are commits, they haven't been pulled
 
-# 3. Check current commit vs remote
+# 2. Check current commit vs remote
 git log -1 --oneline
 # Compare with: https://github.com/sbpang/NAS_MediaCenter/commits/main
 
-# 4. Check if deploy script ran
+# 3. Check if deploy script ran (if using cron/task scheduler)
 ls -la deploy.log 2>/dev/null || echo "No deploy.log found"
 tail -50 deploy.log 2>/dev/null || echo "No deploy log"
 ```
@@ -39,51 +36,35 @@ grep "object-fit" static/styles.css
 # Should show: object-fit: contain
 
 # 3. Restart containers to pick up changes
-docker-compose -f docker-compose.webhook.yml restart nas-player
+docker-compose restart nas-player
 
 # 4. Verify it's running
 docker ps | grep nas-player
 docker logs nas-player | tail -10
 ```
 
-## Check Webhook Status
-
-### On GitHub:
-1. Go to: https://github.com/sbpang/NAS_MediaCenter/settings/hooks
-2. Click on your webhook
-3. Scroll to "Recent Deliveries"
-4. Check the latest delivery:
-   - ✅ Green = Success
-   - ❌ Red = Failed (check the error)
-
-### On NAS:
-```bash
-# Check webhook container logs
-docker logs nas-player-webhook
-
-# Look for:
-# - "Webhook received" messages
-# - Any errors
-# - Deployment script output
-```
-
 ## Common Issues & Fixes
 
-### Issue 1: Webhook Not Triggering
+### Issue 1: Cron Job Not Running
 
-**Symptoms:** No webhook deliveries in GitHub, no logs on NAS
+**Symptoms:** Auto-deployment never happens
 
 **Fix:**
 ```bash
-# Check webhook container is running
-docker ps | grep webhook
+# Check if cron is running
+ps aux | grep cron
 
-# If not running:
-docker-compose -f docker-compose.webhook.yml up -d webhook
+# Check cron logs
+grep CRON /var/log/syslog
 
-# Test webhook manually:
-curl http://localhost:1700/health
-# Should return: {"status":"ok"}
+# Verify crontab entry
+crontab -l
+
+# Test deploy script manually
+bash /volume1/docker/nas-player/deploy.sh
+
+# Check deploy log
+tail -f /volume1/docker/nas-player/deploy.log
 ```
 
 ### Issue 2: Git Pull Fails
@@ -103,6 +84,9 @@ git pull origin main
 
 # Check permissions
 ls -la .git
+
+# Fix Git ownership if needed
+git config --global --add safe.directory /volume1/docker/nas-player
 ```
 
 ### Issue 3: Container Restart Doesn't Pick Up Changes
@@ -114,46 +98,12 @@ ls -la .git
 cd /volume1/docker/nas-player
 
 # Force rebuild and restart
-docker-compose -f docker-compose.webhook.yml down
-docker-compose -f docker-compose.webhook.yml up -d --build nas-player
+docker-compose down
+docker-compose up -d --build
 
 # Verify the mounted code is updated
 docker exec nas-player cat /app/static/styles.css | grep "object-fit"
 # Should show: object-fit: contain
-```
-
-### Issue 4: Webhook Secret Mismatch
-
-**Symptoms:** Webhook shows 401 Unauthorized in GitHub
-
-**Fix:**
-1. Check `.env` file on NAS:
-   ```bash
-   cat /volume1/docker/nas-player/.env
-   ```
-
-2. Compare with GitHub webhook secret:
-   - GitHub: Settings → Webhooks → Your webhook → Show secret
-   - They must match exactly
-
-3. If they don't match:
-   - Update `.env` on NAS, OR
-   - Update secret in GitHub
-   - Restart webhook container:
-     ```bash
-     docker-compose -f docker-compose.webhook.yml restart webhook
-     ```
-
-## Test Webhook Manually
-
-To test if webhook is working:
-
-```bash
-# On your NAS, check webhook logs in real-time
-docker logs -f nas-player-webhook
-
-# Then push a test commit from your computer
-# You should see logs appear on the NAS
 ```
 
 ## Verify Deployment Worked
@@ -183,12 +133,12 @@ docker exec nas-player cat /app/static/styles.css | grep "object-fit"
 To see what's happening during deployment:
 
 ```bash
-# Modify deploy.sh to log to file
+# Run deploy script manually with logging
 cd /volume1/docker/nas-player
-cat deploy.sh | grep -A 5 "Starting deployment"
-
-# Or run deploy script manually with logging
 bash deploy.sh 2>&1 | tee deploy.log
+
+# Or check existing log
+tail -f deploy.log
 ```
 
 ## Still Not Working?
@@ -198,19 +148,38 @@ bash deploy.sh 2>&1 | tee deploy.log
    docker ps -a
    ```
 
-2. **Check webhook URL is accessible:**
-   ```bash
-   curl http://192.168.50.213:1700/health
-   ```
-
-3. **Check firewall allows port 1700:**
+2. **Check firewall allows port 1699:**
    - DSM → Control Panel → Security → Firewall
-   - Ensure port 1700 is allowed
+   - Ensure port 1699 is allowed
 
-4. **Manual deployment as last resort:**
+3. **Manual deployment as last resort:**
    ```bash
    cd /volume1/docker/nas-player
    git pull origin main
-   docker-compose -f docker-compose.webhook.yml restart nas-player
+   docker-compose restart nas-player
    ```
 
+4. **Check deploy script permissions:**
+   ```bash
+   chmod +x /volume1/docker/nas-player/deploy.sh
+   ```
+
+## Alternative Deployment Methods
+
+If cron/task scheduler isn't working, try:
+
+### Method 1: Manual Deployment
+```bash
+cd /volume1/docker/nas-player
+git pull origin main
+docker-compose restart nas-player
+```
+
+### Method 2: SSH Script from Local Machine
+Create a script on your computer that SSH's into NAS:
+```bash
+ssh admin@YOUR_NAS_IP "cd /volume1/docker/nas-player && git pull origin main && docker-compose restart nas-player"
+```
+
+### Method 3: GitHub Actions (if NAS accessible via SSH from internet)
+See SETUP_DS1621.md Step 8 Method E for GitHub Actions setup.

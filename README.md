@@ -16,12 +16,12 @@ A modern web-based media player for your Synology DS1621+ NAS, designed to strea
 ```
 NAS_MediaCenter/
 ├── app.py                 # Flask backend server
-├── webhook_server.py      # GitHub webhook receiver for auto-deployment
+├── jav_scraper.py         # JavSP-style title scraper
+├── title_updater.py        # Auto title detection and update
 ├── deploy.sh              # Deployment script
 ├── requirements.txt       # Python dependencies
-├── docker-compose.webhook.yml  # Docker setup with webhook
+├── docker-compose.yml      # Docker setup
 ├── Dockerfile             # Media player container
-├── Dockerfile.webhook     # Webhook receiver container
 ├── static/
 │   ├── index.html        # Main frontend page
 │   ├── styles.css        # Styling
@@ -32,8 +32,8 @@ NAS_MediaCenter/
 ## Quick Links
 
 - **[Setup Guide](SETUP_DS1621.md)** - Complete step-by-step setup instructions
-- **[Why Webhook & Two Ports?](WHY_WEBHOOK_AND_PORTS.md)** - Explains auto-deployment architecture
 - **[Fresh Start Setup](FRESH_START_SETUP.md)** - Clean installation guide
+- **[JavSP Integration](JAVSP_INTEGRATION.md)** - Title scraping documentation
 
 ## Local Setup (Development)
 

@@ -105,7 +105,7 @@ async function selectArtist(artistName) {
         renderVideos(allVideos);
         
         // Auto-check for missing titles and update
-        await autoUpdateMissingTitles(artistName);
+        await autoUpdateMissingTitles(artistName, true); // true = scrape real titles!
         
         document.getElementById('currentArtistName').textContent = artistName;
         artistsSection.style.display = 'none';
