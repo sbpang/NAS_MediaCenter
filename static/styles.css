@@ -147,16 +147,6 @@ body {
     font-family: 'Courier New', monospace;
 }
 
-.video-card .card-placeholder {
-    display: block;
-    width: 100%;
-    height: 300px;
-    background-color: var(--bg-dark);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-}
 
 .videos-section {
     animation: fadeIn 0.3s ease;

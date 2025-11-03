@@ -80,17 +80,24 @@ async function loadArtists() {
 }
 
 function renderArtists(artists) {
-    artistsGrid.innerHTML = artists.map(artist => `
-        <div class="artist-card" onclick="selectArtist('${artist.name}')">
-            ${artist.icon ? 
-                `<img src="${artist.icon}" alt="${artist.name}" onerror="this.parentElement.innerHTML='<div class=\\'card-placeholder\\'>🎤</div><div class=\\'card-info\\'><h3>${artist.name}</h3></div>'">` :
-                `<div class="card-placeholder">🎤</div>`
-            }
+    artistsGrid.innerHTML = artists.map(artist => {
+        const escapedName = escapeHtml(artist.name);
+        let imageHtml = '';
+        if (artist.icon) {
+            const escapedIcon = escapeHtml(artist.icon);
+            imageHtml = `<img src="${escapedIcon}" alt="${escapedName}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
+        }
+        
+        return `
+        <div class="artist-card" onclick="selectArtist('${escapedName}')">
+            ${artist.icon ? imageHtml : ''}
+            ${artist.icon ? `<div class="card-placeholder" style="display:none">🎤</div>` : `<div class="card-placeholder">🎤</div>`}
             <div class="card-info">
-                <h3>${artist.name}</h3>
+                <h3>${escapedName}</h3>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function selectArtist(artistName) {
