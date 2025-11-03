@@ -85,15 +85,9 @@ function renderArtists(artists) {
         const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const attrName = attrEscape(artist.name);
         
-        let imageHtml = '';
-        if (artist.icon) {
-            const escapedIcon = attrEscape(artist.icon);
-            imageHtml = `<img src="${escapedIcon}" alt="${escapedName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
-        }
-        
         return `
         <div class="artist-card" data-artist="${attrName}">
-            ${artist.icon ? imageHtml : ''}
+            ${artist.icon ? `<img class="artist-icon" src="${attrEscape(artist.icon)}" alt="${escapedName}">` : ''}
             <div class="card-placeholder" style="${artist.icon ? 'display:none' : 'display:flex'}">🎤</div>
             <div class="card-info">
                 <h3>${escapedName}</h3>
@@ -107,6 +101,17 @@ function renderArtists(artists) {
         card.addEventListener('click', function() {
             const artistName = this.getAttribute('data-artist');
             selectArtist(artistName);
+        });
+    });
+    
+    // Handle image errors using event delegation (no inline onerror handlers)
+    artistsGrid.querySelectorAll('.artist-icon').forEach(img => {
+        img.addEventListener('error', function() {
+            this.style.display = 'none';
+            const placeholder = this.nextElementSibling;
+            if (placeholder && placeholder.classList.contains('card-placeholder')) {
+                placeholder.style.display = 'flex';
+            }
         });
     });
 }
@@ -223,7 +228,7 @@ function renderVideos(videos) {
         const escapedCode = escapeHtml(video.code);
         const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
         
-        // Use data attributes to avoid quote escaping issues in onclick
+        // Use data attributes to avoid quote escaping issues
         const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         
         return `
@@ -232,7 +237,7 @@ function renderVideos(videos) {
                  data-code="${attrEscape(video.code)}"
                  data-filename="${attrEscape(primaryMedia.filename)}"
                  data-type="${attrEscape(primaryMedia.type)}">
-                ${poster ? `<img src="${attrEscape(poster)}" alt="${escapedTitle}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                ${poster ? `<img class="video-poster" src="${attrEscape(poster)}" alt="${escapedTitle}">` : ''}
                 <div class="card-placeholder" style="${poster ? 'display:none' : 'display:flex'}">🎬</div>
                 <div class="card-info">
                     <h3>${escapedTitle}</h3>
@@ -252,6 +257,17 @@ function renderVideos(videos) {
             const filename = this.getAttribute('data-filename');
             const type = this.getAttribute('data-type');
             playVideo(artist, code, filename, type);
+        });
+    });
+    
+    // Handle image errors using event delegation (no inline onerror handlers)
+    videosGrid.querySelectorAll('.video-poster').forEach(img => {
+        img.addEventListener('error', function() {
+            this.style.display = 'none';
+            const placeholder = this.nextElementSibling;
+            if (placeholder && placeholder.classList.contains('card-placeholder')) {
+                placeholder.style.display = 'flex';
+            }
         });
     });
 }
