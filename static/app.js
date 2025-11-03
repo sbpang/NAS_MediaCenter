@@ -82,20 +82,19 @@ async function loadArtists() {
 function renderArtists(artists) {
     artistsGrid.innerHTML = artists.map(artist => {
         const escapedName = escapeHtml(artist.name);
-        // Escape for HTML attributes
         const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const attrName = attrEscape(artist.name);
         
         let imageHtml = '';
         if (artist.icon) {
             const escapedIcon = attrEscape(artist.icon);
-            imageHtml = `<img src="${escapedIcon}" alt="${escapedName}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
+            imageHtml = `<img src="${escapedIcon}" alt="${escapedName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
         }
         
         return `
         <div class="artist-card" data-artist="${attrName}">
             ${artist.icon ? imageHtml : ''}
-            ${artist.icon ? `<div class="card-placeholder" style="display:none">🎤</div>` : `<div class="card-placeholder">🎤</div>`}
+            <div class="card-placeholder" style="${artist.icon ? 'display:none' : 'display:flex'}">🎤</div>
             <div class="card-info">
                 <h3>${escapedName}</h3>
             </div>
@@ -103,10 +102,10 @@ function renderArtists(artists) {
         `;
     }).join('');
     
-    // Add event listeners for artist cards
-    document.querySelectorAll('.artist-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const artistName = card.getAttribute('data-artist');
+    // Add click event listeners using event delegation (avoids quote issues)
+    artistsGrid.querySelectorAll('.artist-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const artistName = this.getAttribute('data-artist');
             selectArtist(artistName);
         });
     });
@@ -222,27 +221,19 @@ function renderVideos(videos) {
         
         const escapedTitle = escapeHtml(displayTitle);
         const escapedCode = escapeHtml(video.code);
-        const escapedArtist = escapeHtml(currentArtist);
-        const escapedFilename = escapeHtml(primaryMedia.filename);
         const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
         
-        // Escape for HTML attributes (use double quotes and escape them)
+        // Use data attributes to avoid quote escaping issues in onclick
         const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        const attrArtist = attrEscape(currentArtist);
-        const attrCode = attrEscape(video.code);
-        const attrFilename = attrEscape(primaryMedia.filename);
-        
-        // Use data attributes instead of inline onclick to avoid quote issues
-        let imageHtml = '';
-        if (poster) {
-            const escapedPoster = attrEscape(poster);
-            imageHtml = `<img src="${escapedPoster}" alt="${escapedTitle}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
-        }
         
         return `
-            <div class="video-card" data-artist="${attrArtist}" data-code="${attrCode}" data-filename="${attrFilename}" data-type="${attrEscape(primaryMedia.type)}">
-                ${poster ? imageHtml : ''}
-                ${poster ? `<div class="card-placeholder" style="display:none">🎬</div>` : `<div class="card-placeholder">🎬</div>`}
+            <div class="video-card" 
+                 data-artist="${attrEscape(currentArtist)}"
+                 data-code="${attrEscape(video.code)}"
+                 data-filename="${attrEscape(primaryMedia.filename)}"
+                 data-type="${attrEscape(primaryMedia.type)}">
+                ${poster ? `<img src="${attrEscape(poster)}" alt="${escapedTitle}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                <div class="card-placeholder" style="${poster ? 'display:none' : 'display:flex'}">🎬</div>
                 <div class="card-info">
                     <h3>${escapedTitle}</h3>
                     ${codeLine}
@@ -253,14 +244,14 @@ function renderVideos(videos) {
         `;
     }).join('');
     
-    // Add event listeners for video cards (use event delegation to avoid quote issues)
-    document.querySelectorAll('.video-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const artistName = card.getAttribute('data-artist');
-            const videoCode = card.getAttribute('data-code');
-            const filename = card.getAttribute('data-filename');
-            const mediaType = card.getAttribute('data-type');
-            playVideo(artistName, videoCode, filename, mediaType);
+    // Add click event listeners using event delegation (avoids quote issues)
+    videosGrid.querySelectorAll('.video-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const artist = this.getAttribute('data-artist');
+            const code = this.getAttribute('data-code');
+            const filename = this.getAttribute('data-filename');
+            const type = this.getAttribute('data-type');
+            playVideo(artist, code, filename, type);
         });
     });
 }
@@ -314,7 +305,7 @@ function hideLoading() {
     loadingSpinner.style.display = 'none';
 }
 
-// Make functions global for onclick handlers
+// Make functions global if needed (though we use event delegation now)
 window.selectArtist = selectArtist;
 window.playVideo = playVideo;
 
