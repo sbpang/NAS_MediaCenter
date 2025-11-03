@@ -214,20 +214,21 @@ function renderVideos(videos) {
         const escapedFilename = escapeHtml(primaryMedia.filename);
         const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
         
-        // Build card HTML structure
-        const cardId = `video-${escapedCode.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        // Escape for HTML attributes (use double quotes and escape them)
+        const attrEscape = (str) => String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const attrArtist = attrEscape(currentArtist);
+        const attrCode = attrEscape(video.code);
+        const attrFilename = attrEscape(primaryMedia.filename);
         
-        // Use data attributes for image error handling
+        // Use data attributes instead of inline onclick to avoid quote issues
         let imageHtml = '';
         if (poster) {
-            // Escape the poster URL for use in HTML attribute
-            const escapedPoster = escapeHtml(poster);
-            // Use a simple approach - just hide on error, show placeholder
+            const escapedPoster = attrEscape(poster);
             imageHtml = `<img src="${escapedPoster}" alt="${escapedTitle}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
         }
         
         return `
-            <div class="video-card" onclick="playVideo('${escapedArtist}', '${escapedCode}', '${escapedFilename}', '${primaryMedia.type}')">
+            <div class="video-card" data-artist="${attrArtist}" data-code="${attrCode}" data-filename="${attrFilename}" data-type="${attrEscape(primaryMedia.type)}">
                 ${poster ? imageHtml : ''}
                 ${poster ? `<div class="card-placeholder" style="display:none">🎬</div>` : `<div class="card-placeholder">🎬</div>`}
                 <div class="card-info">
@@ -239,6 +240,17 @@ function renderVideos(videos) {
             </div>
         `;
     }).join('');
+    
+    // Add event listeners for video cards (use event delegation to avoid quote issues)
+    document.querySelectorAll('.video-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const artistName = card.getAttribute('data-artist');
+            const videoCode = card.getAttribute('data-code');
+            const filename = card.getAttribute('data-filename');
+            const mediaType = card.getAttribute('data-type');
+            playVideo(artistName, videoCode, filename, mediaType);
+        });
+    });
 }
 
 function playVideo(artistName, videoCode, filename, mediaType) {
