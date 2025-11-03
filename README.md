@@ -1,228 +1,180 @@
-# NAS Media Player
+# LAN Media Center
 
-A modern web-based media player for your Synology DS1621+ NAS, designed to stream videos and audio from your organized media library.
+A private media-center web application that scans your NAS folder structure and lets you browse & play videos in any browser or phone, inside your local network only.
 
-## Features
+## 🎯 Features
 
-- 🎨 Modern, responsive UI with dark theme
-- 🎬 Video and audio streaming support
-- 🔍 Search functionality
-- 📱 Mobile-friendly design
-- 🚀 Fast media scanning and playback
-- 🖼️ Automatic poster/fanart display
+- **FastAPI Backend** - RESTful API with SQLite database
+- **React Frontend** - Modern TypeScript UI with Vite
+- **Media Scanning** - Automatically indexes videos with ffprobe metadata extraction
+- **Video Streaming** - Range-request support for seeking and playback
+- **Continue Watching** - Browser-local storage of playback progress
+- **Dockerized** - Ready for Synology DS1621+ or Raspberry Pi 5
 
-## Project Structure
+## 📁 Folder Structure
 
-```
-NAS_MediaCenter/
-├── app.py                 # Flask backend server
-├── jav_scraper.py         # JavSP-style title scraper
-├── title_updater.py        # Auto title detection and update
-├── deploy.sh              # Deployment script
-├── requirements.txt       # Python dependencies
-├── docker-compose.yml      # Docker setup
-├── Dockerfile             # Media player container
-├── static/
-│   ├── index.html        # Main frontend page
-│   ├── styles.css        # Styling
-│   └── app.js           # Frontend JavaScript
-└── README.md             # This file
-```
-
-## Quick Links
-
-- **[Setup Guide](SETUP_DS1621.md)** - Complete step-by-step setup instructions
-- **[Fresh Start Setup](FRESH_START_SETUP.md)** - Clean installation guide
-- **[JavSP Integration](JAVSP_INTEGRATION.md)** - Title scraping documentation
-
-## Local Setup (Development)
-
-1. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Update the video path in `app.py`:**
-   ```python
-   VIDEO_SERVER_PATH = r'C:\path\to\Video_Server'  # For local testing
-   ```
-
-3. **Run the application:**
-   ```bash
-   python app.py
-   ```
-
-4. **Access the player:**
-   Open your browser to `http://localhost:1699`
-
-## Deployment on Synology DS1621+
-
-### Method 1: Using Docker (Recommended)
-
-1. **Create a Dockerfile:**
-   ```dockerfile
-   FROM python:3.11-slim
-   WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
-   COPY . .
-   EXPOSE 1699
-   CMD ["python", "app.py"]
-   ```
-
-2. **Build and run in Docker:**
-   - Use Synology's Docker Package Manager
-   - Create a new container from the Dockerfile
-   - Mount your Video_Server folder as a volume
-   - Set environment variable: `VIDEO_SERVER_PATH=/volume1/Video_Server`
-
-### Method 2: Native Python Setup
-
-1. **SSH into your DS1621+:**
-   ```bash
-   ssh admin@your-nas-ip
-   ```
-
-2. **Install Python 3 (if not already installed):**
-   - Via Synology Package Manager: Install Python 3.x
-   - Or via SSH: Follow Synology's Python installation guide
-
-3. **Copy files to NAS:**
-   ```bash
-   # Create directory on NAS
-   mkdir -p /volume1/docker/nas-player
-   
-   # Copy all files from your local machine to NAS
-   # Use SCP, SFTP, or File Station
-   ```
-
-4. **Install dependencies:**
-   ```bash
-   cd /volume1/docker/nas-player
-   pip3 install -r requirements.txt
-   ```
-
-5. **Update `app.py` with NAS path:**
-   ```python
-   VIDEO_SERVER_PATH = '/volume1/Video_Server'
-   ```
-
-6. **Create a systemd service (optional, for auto-start):**
-   ```bash
-   sudo nano /etc/systemd/system/nas-player.service
-   ```
-   
-   Add:
-   ```ini
-   [Unit]
-   Description=NAS Media Player
-   After=network.target
-   
-   [Service]
-   Type=simple
-   User=your-user
-   WorkingDirectory=/volume1/docker/nas-player
-   ExecStart=/usr/local/bin/python3 /volume1/docker/nas-player/app.py
-   Restart=always
-   
-   [Install]
-   WantedBy=multi-user.target
-   ```
-
-7. **Enable and start service:**
-   ```bash
-   sudo systemctl enable nas-player
-   sudo systemctl start nas-player
-   ```
-
-### Method 3: Using Synology Web Station
-
-1. **Install Web Station from Package Center**
-
-2. **Copy project to:**
-   ```
-   /volume1/web/nas-player/
-   ```
-
-3. **Configure Web Station:**
-   - Set PHP version to latest
-   - Create virtual host pointing to `/volume1/web/nas-player`
-   - Note: You'll need to run Flask via WSGI or use gunicorn
-
-4. **For production, use Gunicorn:**
-   ```bash
-   pip install gunicorn
-   gunicorn -w 4 -b 0.0.0.0:1699 app:app
-   ```
-
-### Reverse Proxy Setup (Recommended for Production)
-
-1. **Install Nginx (or use built-in reverse proxy in Control Panel)**
-
-2. **Configure reverse proxy:**
-   - Open Control Panel → Application Portal → Reverse Proxy
-   - Add rule:
-     - Source: Protocol: HTTP, Hostname: `nas-player.local`, Port: 80
-     - Destination: Protocol: HTTP, Hostname: `localhost`, Port: 1699
-
-3. **Access via:** `http://nas-player.local`
-
-## Configuration
-
-### Environment Variables
-
-- `VIDEO_SERVER_PATH`: Path to your Video_Server directory
-  - Windows: `C:\path\to\Video_Server`
-  - NAS: `/volume1/Video_Server`
-
-### Folder Structure Expected
+The application expects your media to be organized as:
 
 ```
-Video_Server/
-└── static/
-    └── artists/
-        ├── ArtistName1/
-        │   ├── icon.jpg
-        │   └── VideoCode1/
-        │       ├── fanart.jpg
-        │       ├── poster.jpg
-        │       └── media.mp4
-        └── ArtistName2/
-            └── ...
+/volume1/Video_Server/static/artists/<ArtistName>/<VideoCode>/
+    ├── <media>        # one playable file (.mp4 .mkv .mov .wmv .avi .m4v)
+    ├── poster.jpg     # cover
+    └── fanart.jpg     # banner
 ```
 
-## Troubleshooting
+## 🚀 Quick Start
 
-### Media files not loading
-- Check file permissions on NAS
-- Verify `VIDEO_SERVER_PATH` is correct
-- Ensure media files are readable
+### Prerequisites
 
-### CORS errors
-- Already handled by `flask-cors`
-- If issues persist, check firewall settings
+- Docker and Docker Compose
+- NAS or server with media files
+- ffmpeg (for ffprobe) - installed in backend container
 
-### Port conflicts
-- Change port in `app.py`: `app.run(port=1700)`
-- Update reverse proxy configuration
+### Installation
 
-## Security Considerations
+1. **Clone and navigate to project:**
+   ```bash
+   cd lan-media-center
+   ```
 
-- For production, add authentication
-- Use HTTPS via reverse proxy
-- Restrict access to internal network only
-- Consider adding user authentication layer
+2. **Update docker-compose.yml volumes:**
+   
+   Edit `docker-compose.yml` and update the volume mounts to match your system:
+   ```yaml
+   volumes:
+     - /volume1/Video_Server:/media:ro  # Update to your media path
+     - /volume1/docker/lan-media/data:/data  # Update to your data path
+   ```
 
-## Performance Tips
+3. **Build and start:**
+   ```bash
+   make build
+   make up
+   ```
 
-- Use SSD cache for frequently accessed files
-- Enable transcoding for better compatibility
-- Consider caching metadata in database for large libraries
+4. **Trigger initial scan:**
+   ```bash
+   make scan
+   ```
+   
+   Or visit http://your-nas-ip:1700 and click "Scan Media Library"
 
-## License
+5. **Access the app:**
+   - Frontend: http://your-nas-ip:1700
+   - API: http://your-nas-ip:1699
+   - API Docs: http://your-nas-ip:1699/docs
 
-Free to use and modify for personal use.
+## 📋 API Endpoints
 
----
-*Last deployment: 2024*
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| POST | `/api/scan` | Scan media library |
+| GET | `/api/artists` | List all artists |
+| GET | `/api/artist/{id}` | Get artist details |
+| GET | `/api/artist/{id}/items` | List items for artist |
+| GET | `/api/item/{id}` | Get item details |
+| GET | `/stream/original?item_id={id}` | Stream video file |
+| GET | `/stream/poster/{item_id}` | Get poster image |
+| GET | `/stream/fanart/{item_id}` | Get fanart image |
+| GET | `/stream/cover/{artist_id}` | Get artist cover |
+
+## 🔧 Configuration
+
+Environment variables (set in `docker-compose.yml`):
+
+- `API_PORT` - Backend API port (default: 1699)
+- `MEDIA_ROOT` - Path to artists folder in container (default: `/media/static/artists`)
+- `DB_PATH` - SQLite database path (default: `/data/media.db`)
+- `ENABLE_PERIODIC_SCAN` - Enable automatic scanning (default: false)
+- `SCAN_INTERVAL_MINUTES` - Scan interval if enabled (default: 120)
+
+## 🛠️ Development
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 1699
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 🐳 Docker Commands
+
+```bash
+make build      # Build images
+make up         # Start containers
+make down       # Stop containers
+make restart    # Restart containers
+make logs       # View logs
+make scan       # Trigger scan
+make test       # Test API
+make clean      # Remove everything
+```
+
+## 🗃️ Database Schema
+
+- **artists** - Artist information with cover images
+- **items** - Media items with metadata (codec, duration, resolution, etc.)
+- **scan_logs** - Scan operation history
+
+## 📱 Features
+
+- **Grid View** - Browse artists and items in responsive grids
+- **Video Player** - Native HTML5 video with controls and seeking
+- **Continue Watching** - Automatically saves playback position
+- **Metadata Display** - Shows duration, codec, resolution, and more
+- **Image Support** - Posters, fanart, and artist covers
+
+## 🔒 Security Notes
+
+- Currently **no authentication** - designed for LAN-only use
+- Only serves files indexed in the database and under `MEDIA_ROOT`
+- Path validation prevents directory traversal
+- CORS is permissive for development (restrict in production)
+
+## 🧪 Testing
+
+```bash
+# Health check
+curl http://localhost:1699/api/health
+
+# Trigger scan
+curl -X POST http://localhost:1699/api/scan
+
+# List artists
+curl http://localhost:1699/api/artists
+```
+
+## 📝 License
+
+MIT
+
+## 🤝 Contributing
+
+Contributions welcome! Please ensure code follows the existing style and includes tests where appropriate.
+
+## 🐛 Troubleshooting
+
+**Scan returns no results:**
+- Verify `MEDIA_ROOT` path is correct in docker-compose.yml
+- Check volume mount permissions
+- Ensure folder structure matches expected format
+
+**Videos won't play:**
+- Verify ffmpeg is installed in container
+- Check file permissions on media files
+- Ensure range requests are working (check browser network tab)
+
+**Database issues:**
+- Check `/data` volume is writable
+- Remove database file to start fresh: `rm /volume1/docker/lan-media/data/media.db`
 
