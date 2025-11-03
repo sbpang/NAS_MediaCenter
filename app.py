@@ -60,7 +60,11 @@ def get_artist_icon(artist_name):
     return jsonify({'error': 'Icon not found'}), 404
 
 def load_title_mapping(artist_name):
-    """Load title mapping from title.json file"""
+    """
+    Load title mapping from title.json file
+    Returns dict mapping code -> {'title': str, 'year': int or None}
+    Supports both old format (code -> title string) and new format (code -> dict)
+    """
     title_file = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / 'title.json'
     
     if not title_file.exists():
@@ -69,11 +73,24 @@ def load_title_mapping(artist_name):
     try:
         with open(title_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            # title.json structure: {"ArtistName": {"CODE": "Title", ...}}
-            if artist_name in data:
-                return data[artist_name]
-            # Fallback: if structure is flat {"CODE": "Title"}
-            return data
+            raw_mapping = data[artist_name] if artist_name in data else data
+            
+            # Convert to new format: code -> {'title': str, 'year': int or None}
+            result = {}
+            for code, value in raw_mapping.items():
+                if isinstance(value, str):
+                    # Old format: just title string
+                    result[code] = {'title': value, 'year': None}
+                elif isinstance(value, dict):
+                    # New format: dict with title and year
+                    result[code] = {
+                        'title': value.get('title', code),
+                        'year': value.get('year')
+                    }
+                else:
+                    result[code] = {'title': str(value), 'year': None}
+            
+            return result
     except (json.JSONDecodeError, KeyError, IOError) as e:
         print(f"Error loading title.json for {artist_name}: {e}")
         return {}
@@ -114,16 +131,26 @@ def get_artist_videos(artist_name):
                         poster = f'/api/video/{artist_name}/{item.name}/poster'
             
             if media_files:
-                # Get title from mapping, fallback to code if not found
-                video_title = title_mapping.get(item.name, item.name)
+                # Get title and year from mapping, fallback to code if not found
+                metadata = title_mapping.get(item.name)
+                if metadata:
+                    video_title = metadata.get('title', item.name)
+                    video_year = metadata.get('year')
+                else:
+                    video_title = item.name
+                    video_year = None
                 
                 videos.append({
                     'code': item.name,
                     'title': video_title,
+                    'year': video_year,
                     'media': media_files,
                     'fanart': fanart,
                     'poster': poster
                 })
+    
+    # Sort videos by year (descending - newest first), then by code if year is None
+    videos.sort(key=lambda v: (v.get('year') if v.get('year') is not None else 0, v['code']), reverse=True)
     
     return jsonify(videos)
 

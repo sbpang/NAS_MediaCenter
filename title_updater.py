@@ -15,8 +15,12 @@ class TitleUpdater:
         self.video_server_path = Path(video_server_path)
         self.artists_path = self.video_server_path / 'static' / 'artists'
     
-    def load_title_mapping(self, artist_name: str) -> Dict[str, str]:
-        """Load existing title mapping from title.json"""
+    def load_title_mapping(self, artist_name: str) -> Dict[str, any]:
+        """
+        Load existing title mapping from title.json
+        Returns dict mapping code -> {'title': str, 'year': int or None}
+        Supports both old format (code -> title string) and new format (code -> dict)
+        """
         title_file = self.artists_path / artist_name / 'title.json'
         
         if not title_file.exists():
@@ -25,9 +29,24 @@ class TitleUpdater:
         try:
             with open(title_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                if artist_name in data:
-                    return data[artist_name]
-                return data
+                raw_mapping = data[artist_name] if artist_name in data else data
+                
+                # Convert old format (code -> title string) to new format (code -> dict)
+                result = {}
+                for code, value in raw_mapping.items():
+                    if isinstance(value, str):
+                        # Old format: just title string
+                        result[code] = {'title': value, 'year': None}
+                    elif isinstance(value, dict):
+                        # New format: dict with title and year
+                        result[code] = {
+                            'title': value.get('title', code),
+                            'year': value.get('year')
+                        }
+                    else:
+                        result[code] = {'title': str(value), 'year': None}
+                
+                return result
         except (json.JSONDecodeError, KeyError, IOError):
             return {}
     
@@ -61,10 +80,10 @@ class TitleUpdater:
         missing = [code for code in all_videos if code not in existing_titles]
         return missing
     
-    def update_title_json(self, artist_name: str, updates: Dict[str, str], create_if_missing: bool = True) -> bool:
+    def update_title_json(self, artist_name: str, updates: Dict[str, any], create_if_missing: bool = True) -> bool:
         """
         Update title.json with new entries
-        updates: Dict mapping video_code -> title
+        updates: Dict mapping video_code -> title (str) or {'title': str, 'year': int}
         """
         title_file = self.artists_path / artist_name / 'title.json'
         
@@ -78,12 +97,23 @@ class TitleUpdater:
         else:
             data = {}
         
-        # Ensure nested structure: {"ArtistName": {"CODE": "Title"}}
+        # Ensure nested structure: {"ArtistName": {"CODE": {"title": "...", "year": ...}}}
         if artist_name not in data:
             data[artist_name] = {}
         
-        # Update with new titles
-        data[artist_name].update(updates)
+        # Convert updates to new format and merge
+        for code, value in updates.items():
+            if isinstance(value, str):
+                # String format: just title
+                data[artist_name][code] = {'title': value, 'year': None}
+            elif isinstance(value, dict):
+                # Dict format: already has title and year
+                data[artist_name][code] = {
+                    'title': value.get('title', code),
+                    'year': value.get('year')
+                }
+            else:
+                data[artist_name][code] = {'title': str(value), 'year': None}
         
         # Save back to file
         try:
@@ -117,18 +147,18 @@ class TitleUpdater:
                     updates = {}
                     
                     if scrape_real_titles and scraper:
-                        # Scrape real titles from multiple sources (JavSP-style)
-                        print(f"Scraping titles for {artist_name} ({len(missing)} videos)...")
-                        scraped_titles = scraper.batch_scrape(missing, delay=1.5)
+                        # Scrape real titles and years from multiple sources (JavSP-style)
+                        print(f"Scraping metadata for {artist_name} ({len(missing)} videos)...")
+                        scraped_metadata = scraper.batch_scrape(missing, delay=1.5)
                         
-                        for code, title in scraped_titles.items():
-                            if title:
-                                updates[code] = title
+                        for code, metadata in scraped_metadata.items():
+                            if metadata and metadata.get('title'):
+                                updates[code] = metadata  # Already in {'title': ..., 'year': ...} format
                             elif placeholder_title:
-                                updates[code] = placeholder_title
+                                updates[code] = {'title': placeholder_title, 'year': None}
                     elif placeholder_title:
                         # Use placeholder for all missing
-                        updates = {code: placeholder_title for code in missing}
+                        updates = {code: {'title': placeholder_title, 'year': None} for code in missing}
                     
                     if updates:
                         self.update_title_json(artist_name, updates)
@@ -149,11 +179,14 @@ class TitleUpdater:
             return {}
         
         scraper = JavMetadataScraper()
-        print(f"Scraping titles for {len(codes)} videos...")
-        scraped_titles = scraper.batch_scrape(codes, delay=1.5)
+        print(f"Scraping metadata for {len(codes)} videos...")
+        scraped_metadata = scraper.batch_scrape(codes, delay=1.5)
         
-        # Filter out None values
-        successful_updates = {code: title for code, title in scraped_titles.items() if title}
+        # Filter out None values and ensure dict format
+        successful_updates = {}
+        for code, metadata in scraped_metadata.items():
+            if metadata and metadata.get('title'):
+                successful_updates[code] = metadata
         
         if successful_updates:
             self.update_title_json(artist_name, successful_updates)

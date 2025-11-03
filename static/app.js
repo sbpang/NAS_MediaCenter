@@ -185,6 +185,8 @@ function renderVideos(videos) {
         // Use title if available, fallback to code
         const displayTitle = video.title || video.code;
         const showCode = video.title && video.title !== video.code;
+        const year = video.year;
+        const yearDisplay = year ? `<span class="video-year">${year}</span>` : '';
         const escapedTitle = escapeHtml(displayTitle);
         const escapedCode = escapeHtml(video.code);
         const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
@@ -192,12 +194,13 @@ function renderVideos(videos) {
         return `
             <div class="video-card" onclick="playVideo('${escapeHtml(currentArtist)}', '${escapedCode}', '${escapeHtml(primaryMedia.filename)}', '${primaryMedia.type}')">
                 ${poster ? 
-                    `<img src="${poster}" alt="${escapedTitle}" onerror="this.parentElement.innerHTML='<div class=\\'card-placeholder\\'>🎬</div><div class=\\'card-info\\'><h3>${escapedTitle}</h3>${codeLine}<p>${video.media.length} file(s)</p></div>'">` :
+                    `<img src="${poster}" alt="${escapedTitle}" onerror="this.parentElement.innerHTML='<div class=\\'card-placeholder\\'>🎬</div><div class=\\'card-info\\'><h3>${escapedTitle}</h3>${codeLine}${yearDisplay}<p>${video.media.length} file(s)</p></div>'">` :
                     `<div class="card-placeholder">🎬</div>`
                 }
                 <div class="card-info">
                     <h3>${escapedTitle}</h3>
                     ${codeLine}
+                    ${yearDisplay}
                     <p>${video.media.length} file(s)</p>
                 </div>
             </div>

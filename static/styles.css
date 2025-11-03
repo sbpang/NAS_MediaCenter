@@ -132,6 +132,18 @@ body {
     font-family: 'Courier New', monospace;
 }
 
+.video-card .card-info .video-year {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+    font-weight: 600;
+    margin: 5px 0;
+    padding: 2px 8px;
+    background: rgba(139, 92, 246, 0.15);
+    border-radius: 12px;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
 .videos-section {
     animation: fadeIn 0.3s ease;
 }
