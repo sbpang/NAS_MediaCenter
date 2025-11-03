@@ -85,7 +85,7 @@ function loadPlayerData() {
                             const displayTitle = video.title || videoCode;
                             const fullTitle = `${artistName} - ${displayTitle}`;
                             // Truncate title if too long (max 60 characters)
-                            const maxLength = 60;
+                            const maxLength = 30;
                             const truncatedTitle = fullTitle.length > maxLength 
                                 ? fullTitle.substring(0, maxLength - 3) + '...' 
                                 : fullTitle;
