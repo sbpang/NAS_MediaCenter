@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <base href="/">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="supported-color-schemes" content="dark">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NAS Player">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#6366f1">
+    <title>NAS Media Player</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body {
+            transform: none !important;
+            width: 100% !important;
+            min-height: 100vh !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .player-page-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            overflow: hidden;
+        }
+        .player-header {
+            padding: 15px 20px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 100;
+            position: relative;
+        }
+        .back-button-player {
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .back-button-player:hover {
+            background: rgba(99, 102, 241, 0.3);
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+        .player-info-header {
+            flex: 1;
+            min-width: 0;
+        }
+        .player-info-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .player-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+        }
+        .player-container-page {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: 0;
+        }
+        #videoPlayerPage {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        #audioPlayerPage {
+            width: 100%;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-page-container">
+        <div class="player-header">
+            <a href="/" class="back-button-player">← Back</a>
+            <div class="player-info-header">
+                <h2 id="playerInfoHeader">Loading...</h2>
+            </div>
+        </div>
+        
+        <div class="player-wrapper">
+            <div class="player-container-page">
+                <video id="videoPlayerPage" controls autoplay>
+                    Your browser does not support the video tag.
+                </video>
+                <audio id="audioPlayerPage" controls autoplay style="display: none;">
+                    Your browser does not support the audio tag.
+                </audio>
+            </div>
+        </div>
+    </div>
+
+    <script src="/player.js"></script>
+</body>
+</html>
+

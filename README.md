@@ -1,180 +1,138 @@
-# LAN Media Center
+# NAS Media Player
 
-A private media-center web application that scans your NAS folder structure and lets you browse & play videos in any browser or phone, inside your local network only.
+A modern web-based media player for your Synology DS1621+ NAS, designed to stream videos and audio from your organized media library.
 
-## 🎯 Features
+## Features
 
-- **FastAPI Backend** - RESTful API with SQLite database
-- **React Frontend** - Modern TypeScript UI with Vite
-- **Media Scanning** - Automatically indexes videos with ffprobe metadata extraction
-- **Video Streaming** - Range-request support for seeking and playback
-- **Continue Watching** - Browser-local storage of playback progress
-- **Dockerized** - Ready for Synology DS1621+ or Raspberry Pi 5
+- 🎨 Modern, responsive UI with dark theme
+- 🎬 Video and audio streaming support
+- 🔍 Search functionality
+- 📱 Mobile-friendly design
+- 🚀 Fast media scanning and playback
+- 🖼️ Automatic poster/fanart display
 
-## 📁 Folder Structure
-
-The application expects your media to be organized as:
+## Project Structure
 
 ```
-/volume1/Video_Server/static/artists/<ArtistName>/<VideoCode>/
-    ├── <media>        # one playable file (.mp4 .mkv .mov .wmv .avi .m4v)
-    ├── poster.jpg     # cover
-    └── fanart.jpg     # banner
+NAS_MediaCenter/
+├── app.py                 # Flask backend server
+├── jav_scraper.py         # JavSP-style title scraper
+├── title_updater.py        # Auto title detection and update
+├── deploy.sh              # Deployment script
+├── requirements.txt       # Python dependencies
+├── docker-compose.yml      # Docker setup
+├── Dockerfile             # Media player container
+├── static/
+│   ├── index.html        # Main frontend page
+│   ├── styles.css        # Styling
+│   └── app.js           # Frontend JavaScript
+└── README.md             # This file
 ```
 
-## 🚀 Quick Start
+## Quick Links
 
-### Prerequisites
+- **[Setup Guide](SETUP_DS1621.md)** - Complete step-by-step setup instructions
+- **[Deployment Guide](DEPLOYMENT.md)** - Deployment methods and troubleshooting
+- **[Metadata Management](METADATA.md)** - Title scraping and auto-update system
 
-- Docker and Docker Compose
-- NAS or server with media files
-- ffmpeg (for ffprobe) - installed in backend container
+## Local Setup (Development)
 
-### Installation
-
-1. **Clone and navigate to project:**
+1. **Install Python dependencies:**
    ```bash
-   cd lan-media-center
+   pip install -r requirements.txt
    ```
 
-2. **Update docker-compose.yml volumes:**
-   
-   Edit `docker-compose.yml` and update the volume mounts to match your system:
-   ```yaml
-   volumes:
-     - /volume1/Video_Server:/media:ro  # Update to your media path
-     - /volume1/docker/lan-media/data:/data  # Update to your data path
+2. **Update the video path in `app.py`:**
+   ```python
+   VIDEO_SERVER_PATH = r'C:\path\to\Video_Server'  # For local testing
    ```
 
-3. **Build and start:**
+3. **Run the application:**
    ```bash
-   make build
-   make up
+   python app.py
    ```
 
-4. **Trigger initial scan:**
-   ```bash
-   make scan
-   ```
-   
-   Or visit http://your-nas-ip:1700 and click "Scan Media Library"
+4. **Access the player:**
+   Open your browser to `http://localhost:1699`
 
-5. **Access the app:**
-   - Frontend: http://your-nas-ip:1700
-   - API: http://your-nas-ip:1699
-   - API Docs: http://your-nas-ip:1699/docs
+## Deployment on Synology DS1621+
 
-## 📋 API Endpoints
+See [SETUP_DS1621.md](SETUP_DS1621.md) for detailed setup instructions and [DEPLOYMENT.md](DEPLOYMENT.md) for deployment methods and troubleshooting.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| POST | `/api/scan` | Scan media library |
-| GET | `/api/artists` | List all artists |
-| GET | `/api/artist/{id}` | Get artist details |
-| GET | `/api/artist/{id}/items` | List items for artist |
-| GET | `/api/item/{id}` | Get item details |
-| GET | `/stream/original?item_id={id}` | Stream video file |
-| GET | `/stream/poster/{item_id}` | Get poster image |
-| GET | `/stream/fanart/{item_id}` | Get fanart image |
-| GET | `/stream/cover/{artist_id}` | Get artist cover |
-
-## 🔧 Configuration
-
-Environment variables (set in `docker-compose.yml`):
-
-- `API_PORT` - Backend API port (default: 1699)
-- `MEDIA_ROOT` - Path to artists folder in container (default: `/media/static/artists`)
-- `DB_PATH` - SQLite database path (default: `/data/media.db`)
-- `ENABLE_PERIODIC_SCAN` - Enable automatic scanning (default: false)
-- `SCAN_INTERVAL_MINUTES` - Scan interval if enabled (default: 120)
-
-## 🛠️ Development
-
-### Backend
+### Quick Start with Docker
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 1699
+# 1. Clone repository
+cd /volume1/docker
+git clone https://github.com/sbpang/NAS_MediaCenter.git nas-player
+cd nas-player
+
+# 2. Start Docker service
+docker-compose up -d --build
+
+# 3. Access at http://YOUR_NAS_IP:1699
 ```
 
-### Frontend
+**Note:** Make sure to update `VIDEO_SERVER_PATH` in `docker-compose.yml` to match your video folder location.
 
-```bash
-cd frontend
-npm install
-npm run dev
+## Configuration
+
+### Environment Variables
+
+- `VIDEO_SERVER_PATH`: Path to your Video_Server directory
+  - Windows: `C:\path\to\Video_Server`
+  - NAS: `/volume1/Video_Server`
+
+### Folder Structure Expected
+
+```
+Video_Server/
+└── static/
+    └── artists/
+        ├── ArtistName1/
+        │   ├── icon.jpg
+        │   └── VideoCode1/
+        │       ├── fanart.jpg
+        │       ├── poster.jpg
+        │       └── media.mp4
+        └── ArtistName2/
+            └── ...
 ```
 
-## 🐳 Docker Commands
+## Troubleshooting
 
-```bash
-make build      # Build images
-make up         # Start containers
-make down       # Stop containers
-make restart    # Restart containers
-make logs       # View logs
-make scan       # Trigger scan
-make test       # Test API
-make clean      # Remove everything
-```
+For deployment issues, see [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive troubleshooting.
 
-## 🗃️ Database Schema
+### Common Issues
 
-- **artists** - Artist information with cover images
-- **items** - Media items with metadata (codec, duration, resolution, etc.)
-- **scan_logs** - Scan operation history
+**Media files not loading:**
+- Check file permissions on NAS
+- Verify `VIDEO_SERVER_PATH` is correct (environment variable or in `app.py`)
+- Ensure media files are readable
 
-## 📱 Features
+**Port conflicts:**
+- Change port in `app.py`: `app.run(port=1700)`
+- Update `docker-compose.yml` port mapping
+- Check firewall settings (DSM → Control Panel → Security → Firewall)
 
-- **Grid View** - Browse artists and items in responsive grids
-- **Video Player** - Native HTML5 video with controls and seeking
-- **Continue Watching** - Automatically saves playback position
-- **Metadata Display** - Shows duration, codec, resolution, and more
-- **Image Support** - Posters, fanart, and artist covers
+## Security Considerations
 
-## 🔒 Security Notes
+- For production, add authentication
+- Use HTTPS via reverse proxy
+- Restrict access to internal network only
+- Consider adding user authentication layer
 
-- Currently **no authentication** - designed for LAN-only use
-- Only serves files indexed in the database and under `MEDIA_ROOT`
-- Path validation prevents directory traversal
-- CORS is permissive for development (restrict in production)
+## Performance Tips
 
-## 🧪 Testing
+- Use SSD cache for frequently accessed files
+- Enable transcoding for better compatibility
+- Consider caching metadata in database for large libraries
 
-```bash
-# Health check
-curl http://localhost:1699/api/health
+## License
 
-# Trigger scan
-curl -X POST http://localhost:1699/api/scan
+Free to use and modify for personal use.
 
-# List artists
-curl http://localhost:1699/api/artists
-```
+---
+*Last deployment: 2024*
 
-## 📝 License
-
-MIT
-
-## 🤝 Contributing
-
-Contributions welcome! Please ensure code follows the existing style and includes tests where appropriate.
-
-## 🐛 Troubleshooting
-
-**Scan returns no results:**
-- Verify `MEDIA_ROOT` path is correct in docker-compose.yml
-- Check volume mount permissions
-- Ensure folder structure matches expected format
-
-**Videos won't play:**
-- Verify ffmpeg is installed in container
-- Check file permissions on media files
-- Ensure range requests are working (check browser network tab)
-
-**Database issues:**
-- Check `/data` volume is writable
-- Remove database file to start fresh: `rm /volume1/docker/lan-media/data/media.db`
 
