@@ -207,18 +207,22 @@ function renderVideos(videos) {
         const escapedFilename = escapeHtml(primaryMedia.filename);
         const codeLine = showCode ? `<p class="video-code">${escapedCode}</p>` : '';
         
-        // Create placeholder HTML for error case (avoid nested quotes)
-        const placeholderHtml = `<div class="card-placeholder">🎬</div><div class="card-info"><h3>${escapedTitle}</h3>${codeLine}${dateDisplay}<p>${video.media.length} file(s)</p></div>`;
-        
-        // Use data attributes to avoid quote escaping issues
+        // Build card HTML structure
         const cardId = `video-${escapedCode.replace(/[^a-zA-Z0-9]/g, '-')}`;
         
+        // Use data attributes for image error handling
+        let imageHtml = '';
+        if (poster) {
+            // Escape the poster URL for use in HTML attribute
+            const escapedPoster = escapeHtml(poster);
+            // Use a simple approach - just hide on error, show placeholder
+            imageHtml = `<img src="${escapedPoster}" alt="${escapedTitle}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`;
+        }
+        
         return `
-            <div class="video-card" id="${cardId}" onclick="playVideo('${escapedArtist}', '${escapedCode}', '${escapedFilename}', '${primaryMedia.type}')">
-                ${poster ? 
-                    `<img src="${poster}" alt="${escapedTitle}" onerror="this.onerror=null;this.parentElement.innerHTML=${JSON.stringify(placeholderHtml)}">` :
-                    `<div class="card-placeholder">🎬</div>`
-                }
+            <div class="video-card" onclick="playVideo('${escapedArtist}', '${escapedCode}', '${escapedFilename}', '${primaryMedia.type}')">
+                ${poster ? imageHtml : ''}
+                ${poster ? `<div class="card-placeholder" style="display:none">🎬</div>` : `<div class="card-placeholder">🎬</div>`}
                 <div class="card-info">
                     <h3>${escapedTitle}</h3>
                     ${codeLine}
