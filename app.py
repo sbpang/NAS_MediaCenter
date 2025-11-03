@@ -62,7 +62,7 @@ def get_artist_icon(artist_name):
 def load_title_mapping(artist_name):
     """
     Load title mapping from title.json file
-    Returns dict mapping code -> {'title': str, 'year': int or None}
+    Returns dict mapping code -> {'title': str, 'year': int, 'month': int, 'day': int, 'date': dict}
     Supports both old format (code -> title string) and new format (code -> dict)
     """
     title_file = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / 'title.json'
@@ -75,20 +75,24 @@ def load_title_mapping(artist_name):
             data = json.load(f)
             raw_mapping = data[artist_name] if artist_name in data else data
             
-            # Convert to new format: code -> {'title': str, 'year': int or None}
+            # Convert to new format: code -> {'title': str, 'year': int, 'month': int, 'day': int, 'date': dict}
             result = {}
             for code, value in raw_mapping.items():
                 if isinstance(value, str):
                     # Old format: just title string
-                    result[code] = {'title': value, 'year': None}
+                    result[code] = {'title': value, 'year': None, 'month': None, 'day': None, 'date': None}
                 elif isinstance(value, dict):
-                    # New format: dict with title and year
+                    # New format: dict with title and date info
+                    date_info = value.get('date', {})
                     result[code] = {
                         'title': value.get('title', code),
-                        'year': value.get('year')
+                        'year': value.get('year') or (date_info.get('year') if date_info else None),
+                        'month': value.get('month') or (date_info.get('month') if date_info else None),
+                        'day': value.get('day') or (date_info.get('day') if date_info else None),
+                        'date': value.get('date') or date_info
                     }
                 else:
-                    result[code] = {'title': str(value), 'year': None}
+                    result[code] = {'title': str(value), 'year': None, 'month': None, 'day': None, 'date': None}
             
             return result
     except (json.JSONDecodeError, KeyError, IOError) as e:
@@ -131,26 +135,42 @@ def get_artist_videos(artist_name):
                         poster = f'/api/video/{artist_name}/{item.name}/poster'
             
             if media_files:
-                # Get title and year from mapping, fallback to code if not found
+                # Get title and date info from mapping, fallback to code if not found
                 metadata = title_mapping.get(item.name)
                 if metadata:
                     video_title = metadata.get('title', item.name)
                     video_year = metadata.get('year')
+                    video_month = metadata.get('month')
+                    video_day = metadata.get('day')
+                    video_date = metadata.get('date')
                 else:
                     video_title = item.name
                     video_year = None
+                    video_month = None
+                    video_day = None
+                    video_date = None
                 
                 videos.append({
                     'code': item.name,
                     'title': video_title,
                     'year': video_year,
+                    'month': video_month,
+                    'day': video_day,
+                    'date': video_date,
                     'media': media_files,
                     'fanart': fanart,
                     'poster': poster
                 })
     
-    # Sort videos by year (descending - newest first), then by code if year is None
-    videos.sort(key=lambda v: (v.get('year') if v.get('year') is not None else 0, v['code']), reverse=True)
+    # Sort videos by full date (descending - newest first)
+    # Sort key: (year, month, day) with None values treated as 0
+    # This ensures newest videos appear first, with most precise dates taking priority
+    videos.sort(key=lambda v: (
+        v.get('year') if v.get('year') is not None else 0,
+        v.get('month') if v.get('month') is not None else 0,
+        v.get('day') if v.get('day') is not None else 0,
+        v['code']
+    ), reverse=True)
     
     return jsonify(videos)
 

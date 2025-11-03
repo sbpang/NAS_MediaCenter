@@ -132,7 +132,7 @@ body {
     font-family: 'Courier New', monospace;
 }
 
-.video-card .card-info .video-year {
+.video-card .card-info .video-date {
     display: inline-block;
     font-size: 0.85rem;
     color: var(--secondary-color);
@@ -142,6 +142,7 @@ body {
     background: rgba(139, 92, 246, 0.15);
     border-radius: 12px;
     border: 1px solid rgba(139, 92, 246, 0.3);
+    font-family: 'Courier New', monospace;
 }
 
 .videos-section {

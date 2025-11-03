@@ -18,7 +18,7 @@ class TitleUpdater:
     def load_title_mapping(self, artist_name: str) -> Dict[str, any]:
         """
         Load existing title mapping from title.json
-        Returns dict mapping code -> {'title': str, 'year': int or None}
+        Returns dict mapping code -> {'title': str, 'year': int, 'month': int, 'day': int, 'date': dict}
         Supports both old format (code -> title string) and new format (code -> dict)
         """
         title_file = self.artists_path / artist_name / 'title.json'
@@ -31,20 +31,24 @@ class TitleUpdater:
                 data = json.load(f)
                 raw_mapping = data[artist_name] if artist_name in data else data
                 
-                # Convert old format (code -> title string) to new format (code -> dict)
+                # Convert to new format (code -> dict with title and date info)
                 result = {}
                 for code, value in raw_mapping.items():
                     if isinstance(value, str):
                         # Old format: just title string
-                        result[code] = {'title': value, 'year': None}
+                        result[code] = {'title': value, 'year': None, 'month': None, 'day': None, 'date': None}
                     elif isinstance(value, dict):
-                        # New format: dict with title and year
+                        # New format: dict with title and date info
+                        date_info = value.get('date', {})
                         result[code] = {
                             'title': value.get('title', code),
-                            'year': value.get('year')
+                            'year': value.get('year') or (date_info.get('year') if date_info else None),
+                            'month': value.get('month') or (date_info.get('month') if date_info else None),
+                            'day': value.get('day') or (date_info.get('day') if date_info else None),
+                            'date': value.get('date') or date_info
                         }
                     else:
-                        result[code] = {'title': str(value), 'year': None}
+                        result[code] = {'title': str(value), 'year': None, 'month': None, 'day': None, 'date': None}
                 
                 return result
         except (json.JSONDecodeError, KeyError, IOError):
@@ -105,15 +109,19 @@ class TitleUpdater:
         for code, value in updates.items():
             if isinstance(value, str):
                 # String format: just title
-                data[artist_name][code] = {'title': value, 'year': None}
+                data[artist_name][code] = {'title': value, 'year': None, 'month': None, 'day': None, 'date': None}
             elif isinstance(value, dict):
-                # Dict format: already has title and year
+                # Dict format: already has title and date info
+                date_info = value.get('date', {})
                 data[artist_name][code] = {
                     'title': value.get('title', code),
-                    'year': value.get('year')
+                    'year': value.get('year') or (date_info.get('year') if date_info else None),
+                    'month': value.get('month') or (date_info.get('month') if date_info else None),
+                    'day': value.get('day') or (date_info.get('day') if date_info else None),
+                    'date': value.get('date') or date_info
                 }
             else:
-                data[artist_name][code] = {'title': str(value), 'year': None}
+                data[artist_name][code] = {'title': str(value), 'year': None, 'month': None, 'day': None, 'date': None}
         
         # Save back to file
         try:
@@ -153,12 +161,12 @@ class TitleUpdater:
                         
                         for code, metadata in scraped_metadata.items():
                             if metadata and metadata.get('title'):
-                                updates[code] = metadata  # Already in {'title': ..., 'year': ...} format
+                                updates[code] = metadata  # Already in {'title': ..., 'year': ..., 'month': ..., 'day': ...} format
                             elif placeholder_title:
-                                updates[code] = {'title': placeholder_title, 'year': None}
+                                updates[code] = {'title': placeholder_title, 'year': None, 'month': None, 'day': None, 'date': None}
                     elif placeholder_title:
                         # Use placeholder for all missing
-                        updates = {code: {'title': placeholder_title, 'year': None} for code in missing}
+                        updates = {code: {'title': placeholder_title, 'year': None, 'month': None, 'day': None, 'date': None} for code in missing}
                     
                     if updates:
                         self.update_title_json(artist_name, updates)

@@ -61,28 +61,50 @@ class JavMetadataScraper:
         
         return None
     
-    def extract_year(self, date_str: str) -> Optional[int]:
-        """Extract year from date string (various formats)"""
+    def extract_date(self, date_str: str) -> Optional[Dict[str, int]]:
+        """
+        Extract full date (year, month, day) from date string (various formats)
+        Returns dict with 'year', 'month', 'day' or None
+        """
         if not date_str:
             return None
         
-        # Try common date patterns
+        # Try common date patterns with full date
         patterns = [
-            r'(\d{4})-\d{2}-\d{2}',  # 2024-01-15
-            r'(\d{4})年',             # 2024年
-            r'(\d{4})/',              # 2024/01/15
-            r'(\d{4})\.',             # 2024.01.15
-            r'Release[:\s]+(\d{4})',  # Release: 2024
-            r'発売日[:\s]+(\d{4})',   # 発売日: 2024
+            # Full date patterns: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+            (r'(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})', ['year', 'month', 'day']),
+            # Japanese format: YYYY年MM月DD日
+            (r'(\d{4})年(\d{1,2})月(\d{1,2})日', ['year', 'month', 'day']),
+            # Japanese format: YYYY年MM月
+            (r'(\d{4})年(\d{1,2})月', ['year', 'month']),
+            # Year only patterns
+            (r'(\d{4})年', ['year']),
+            (r'Release[:\s]+(\d{4})', ['year']),
+            (r'発売日[:\s]+(\d{4})', ['year']),
+            (r'(\d{4})/', ['year']),
+            (r'(\d{4})\.', ['year']),
         ]
         
-        for pattern in patterns:
+        for pattern, fields in patterns:
             match = re.search(pattern, date_str)
             if match:
-                year = int(match.group(1))
+                result = {}
+                for i, field in enumerate(fields, 1):
+                    value = int(match.group(i))
+                    result[field] = value
+                
                 # Sanity check: valid year range (1990-2030)
-                if 1990 <= year <= 2030:
-                    return year
+                year = result.get('year')
+                if year and 1990 <= year <= 2030:
+                    # Default month and day to 1 if not present
+                    if 'month' not in result:
+                        result['month'] = 1
+                    if 'day' not in result:
+                        result['day'] = 1
+                    
+                    # Validate month and day
+                    if 1 <= result['month'] <= 12 and 1 <= result['day'] <= 31:
+                        return result
         
         return None
     
@@ -113,12 +135,18 @@ class JavMetadataScraper:
                         title_match = re.search(r'<strong[^>]*>([^<]+)</strong>', detail_response.text)
                         if title_match:
                             title = title_match.group(1).strip()
-                            # Try to extract year from page
-                            year_match = re.search(r'(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2})', detail_response.text)
-                            year = None
-                            if year_match:
-                                year = self.extract_year(year_match.group(1))
-                            return {'title': title, 'year': year}
+                            # Try to extract date from page
+                            date_match = re.search(r'(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2})', detail_response.text)
+                            date_info = None
+                            if date_match:
+                                date_info = self.extract_date(date_match.group(1))
+                            return {
+                                'title': title,
+                                'year': date_info.get('year') if date_info else None,
+                                'month': date_info.get('month') if date_info else None,
+                                'day': date_info.get('day') if date_info else None,
+                                'date': date_info
+                            }
                 return None
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -180,16 +208,23 @@ class JavMetadataScraper:
                                     date_text = date_match.group(1)
                             
                             if date_text:
-                                year = self.extract_year(date_text)
+                                date_info = self.extract_date(date_text)
+                                return {
+                                    'title': title,
+                                    'year': date_info.get('year') if date_info else None,
+                                    'month': date_info.get('month') if date_info else None,
+                                    'day': date_info.get('day') if date_info else None,
+                                    'date': date_info
+                                }
                             
-                            return {'title': title, 'year': year}
+                            return {'title': title, 'year': None, 'month': None, 'day': None, 'date': None}
                 
                 # Fallback: get title from search result directly
                 title_elem = result_link.find_parent().find_next(['div', 'span', 'strong'])
                 if title_elem:
                     title = title_elem.get_text(strip=True)
                     if title and len(title) > 5:
-                        return {'title': title, 'year': None}
+                        return {'title': title, 'year': None, 'month': None, 'day': None, 'date': None}
         
         except Exception as e:
             print(f"Error scraping JavDB for {code}: {e}")
@@ -215,12 +250,20 @@ class JavMetadataScraper:
                 title_match = re.search(r'<div[^>]*class="video"[^>]*>.*?<a[^>]+>([^<]+)</a>', response.text, re.DOTALL)
                 if title_match:
                     title = title_match.group(1).strip()
-                    # Try to extract year
-                    year_match = re.search(r'(\d{4})', response.text)
-                    year = None
-                    if year_match:
-                        year = self.extract_year(year_match.group(1))
-                    return {'title': title, 'year': year}
+                    # Try to extract date
+                    date_match = re.search(r'(\d{4}[-\/年]\d{1,2}[-\/月]\d{1,2})', response.text)
+                    if not date_match:
+                        date_match = re.search(r'(\d{4})', response.text)
+                    date_info = None
+                    if date_match:
+                        date_info = self.extract_date(date_match.group(1))
+                    return {
+                        'title': title,
+                        'year': date_info.get('year') if date_info else None,
+                        'month': date_info.get('month') if date_info else None,
+                        'day': date_info.get('day') if date_info else None,
+                        'date': date_info
+                    }
                 return None
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -232,18 +275,24 @@ class JavMetadataScraper:
                 if title_link:
                     title = title_link.get_text(strip=True)
                     if title and len(title) > 5:
-                        # Try to get year from video div
-                        year = None
+                        # Try to get date from video div
+                        date_info = None
                         date_elem = video_div.find('div', class_=re.compile(r'date|year', re.I))
                         if date_elem:
-                            year = self.extract_year(date_elem.get_text(strip=True))
-                        return {'title': title, 'year': year}
+                            date_info = self.extract_date(date_elem.get_text(strip=True))
+                        return {
+                            'title': title,
+                            'year': date_info.get('year') if date_info else None,
+                            'month': date_info.get('month') if date_info else None,
+                            'day': date_info.get('day') if date_info else None,
+                            'date': date_info
+                        }
                 
                 # Alternative: look for title attribute
                 if title_link and title_link.get('title'):
                     title = title_link.get('title').strip()
                     if title and len(title) > 5:
-                        return {'title': title, 'year': None}
+                        return {'title': title, 'year': None, 'month': None, 'day': None, 'date': None}
         
         except Exception as e:
             print(f"Error scraping JavLibrary for {code}: {e}")
@@ -285,25 +334,42 @@ class JavMetadataScraper:
                             if title_elem:
                                 title = title_elem.get('alt') or title_elem.get_text(strip=True)
                                 if title and len(title) > 5:
-                                    # Try to extract year from page
-                                    year = None
-                                    # DMM usually has date in format: 2024年1月15日
-                                    year_match = re.search(r'(\d{4})年', response.text)
-                                    if year_match:
-                                        year = self.extract_year(year_match.group(1))
-                                    return {'title': title, 'year': year}
+                                    # Try to extract date from page (DMM format: 2024年1月15日)
+                                    date_match = re.search(r'(\d{4}年\d{1,2}月\d{1,2}日)', response.text)
+                                    if not date_match:
+                                        date_match = re.search(r'(\d{4}年\d{1,2}月)', response.text)
+                                    if not date_match:
+                                        date_match = re.search(r'(\d{4})年', response.text)
+                                    date_info = None
+                                    if date_match:
+                                        date_info = self.extract_date(date_match.group(1))
+                                    return {
+                                        'title': title,
+                                        'year': date_info.get('year') if date_info else None,
+                                        'month': date_info.get('month') if date_info else None,
+                                        'day': date_info.get('day') if date_info else None,
+                                        'date': date_info
+                                    }
                     
                     # Fallback: regex search in HTML (works with or without BeautifulSoup)
                     title_match = re.search(r'alt="([^"]{10,})"', response.text)
                     if title_match:
                         title = title_match.group(1).strip()
                         if title:
-                            # Try to extract year
-                            year_match = re.search(r'(\d{4})年', response.text)
-                            year = None
-                            if year_match:
-                                year = self.extract_year(year_match.group(1))
-                            return {'title': title, 'year': year}
+                            # Try to extract date
+                            date_match = re.search(r'(\d{4}年\d{1,2}月\d{1,2}日)', response.text)
+                            if not date_match:
+                                date_match = re.search(r'(\d{4})年', response.text)
+                            date_info = None
+                            if date_match:
+                                date_info = self.extract_date(date_match.group(1))
+                            return {
+                                'title': title,
+                                'year': date_info.get('year') if date_info else None,
+                                'month': date_info.get('month') if date_info else None,
+                                'day': date_info.get('day') if date_info else None,
+                                'date': date_info
+                            }
                 except:
                     continue
         
@@ -329,8 +395,15 @@ class JavMetadataScraper:
                     result = scraper_func(code)
                     if result and result.get('title'):
                         title_preview = result['title'][:50] + '...' if len(result['title']) > 50 else result['title']
-                        year_info = f", Year: {result.get('year')}" if result.get('year') else ""
-                        print(f"Found metadata for {code} from {source_name}: {title_preview}{year_info}")
+                        date_info = ""
+                        if result.get('year'):
+                            if result.get('month') and result.get('day'):
+                                date_info = f", Date: {result['year']}-{result['month']:02d}-{result['day']:02d}"
+                            elif result.get('month'):
+                                date_info = f", Date: {result['year']}-{result['month']:02d}"
+                            else:
+                                date_info = f", Year: {result['year']}"
+                        print(f"Found metadata for {code} from {source_name}: {title_preview}{date_info}")
                         return result
                     
                     # Rate limiting - be respectful
@@ -350,7 +423,7 @@ class JavMetadataScraper:
     def batch_scrape(self, codes: List[str], delay: float = 1.0) -> Dict[str, Optional[Dict[str, any]]]:
         """
         Scrape multiple codes with rate limiting
-        Returns dict mapping code -> {'title': str, 'year': int or None}
+        Returns dict mapping code -> {'title': str, 'year': int, 'month': int, 'day': int, 'date': dict}
         """
         results = {}
         
@@ -377,7 +450,16 @@ if __name__ == '__main__':
         result = scraper.scrape_multiple_sources(code)
         if result:
             print(f"Title: {result.get('title')}")
-            print(f"Year: {result.get('year', 'Not found')}")
+            date_info = result.get('date')
+            if date_info:
+                if date_info.get('day'):
+                    print(f"Date: {date_info['year']}-{date_info['month']:02d}-{date_info['day']:02d}")
+                elif date_info.get('month'):
+                    print(f"Date: {date_info['year']}-{date_info['month']:02d}")
+                else:
+                    print(f"Year: {date_info['year']}")
+            else:
+                print("Date: Not found")
         else:
             print("No metadata found")
     else:
@@ -388,7 +470,16 @@ if __name__ == '__main__':
             result = scraper.scrape_multiple_sources(code)
             if result:
                 print(f"Title: {result.get('title')}")
-                print(f"Year: {result.get('year', 'Not found')}")
+                date_info = result.get('date')
+                if date_info:
+                    if date_info.get('day'):
+                        print(f"Date: {date_info['year']}-{date_info['month']:02d}-{date_info['day']:02d}")
+                    elif date_info.get('month'):
+                        print(f"Date: {date_info['year']}-{date_info['month']:02d}")
+                    else:
+                        print(f"Year: {date_info['year']}")
+                else:
+                    print("Date: Not found")
             else:
                 print("No result")
 
