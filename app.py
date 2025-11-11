@@ -136,6 +136,10 @@ def get_artist_videos(artist_name):
             media_files = []
             fanart = None
             poster = None
+            fallback_image = None  # Any image file as fallback
+            
+            # Supported image extensions
+            image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
             
             for file in item.iterdir():
                 if file.is_file():
@@ -150,6 +154,14 @@ def get_artist_videos(artist_name):
                         fanart = f'/api/video/{artist_name}/{item.name}/fanart'
                     elif file.name.lower() == 'poster.jpg':
                         poster = f'/api/video/{artist_name}/{item.name}/poster'
+                    elif ext in image_extensions and not fallback_image:
+                        # Store first image found as fallback (skip fanart.jpg and poster.jpg)
+                        if file.name.lower() not in ['fanart.jpg', 'poster.jpg']:
+                            fallback_image = file.name
+            
+            # Use fallback image if poster.jpg not found
+            if not poster and fallback_image:
+                poster = f'/api/video/{artist_name}/{item.name}/image/{fallback_image}'
             
             if media_files:
                 # Get title and date info from mapping, fallback to code if not found
@@ -203,12 +215,55 @@ def get_fanart(artist_name, video_code):
 
 @app.route('/api/video/<artist_name>/<video_code>/poster')
 def get_poster(artist_name, video_code):
-    """Get poster image"""
-    poster_path = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / video_code / 'poster.jpg'
+    """Get poster image - tries poster.jpg first, then any image file"""
+    video_folder = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / video_code
     
+    # First try poster.jpg
+    poster_path = video_folder / 'poster.jpg'
     if poster_path.exists():
         return send_file(str(poster_path), mimetype='image/jpeg')
+    
+    # If poster.jpg not found, look for any image file
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+    for file in video_folder.iterdir():
+        if file.is_file():
+            ext = file.suffix.lower()
+            if ext in image_extensions and file.name.lower() not in ['fanart.jpg', 'poster.jpg']:
+                # Determine mimetype based on extension
+                mimetype_map = {
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.png': 'image/png',
+                    '.gif': 'image/gif',
+                    '.webp': 'image/webp',
+                    '.bmp': 'image/bmp'
+                }
+                mimetype = mimetype_map.get(ext, 'image/jpeg')
+                return send_file(str(file), mimetype=mimetype)
+    
     return jsonify({'error': 'Poster not found'}), 404
+
+@app.route('/api/video/<artist_name>/<video_code>/image/<filename>')
+def get_image(artist_name, video_code, filename):
+    """Get any image file from video folder"""
+    image_path = Path(VIDEO_SERVER_PATH) / 'static' / 'artists' / artist_name / video_code / filename
+    
+    if not image_path.exists():
+        return jsonify({'error': 'Image not found'}), 404
+    
+    # Determine mimetype based on extension
+    ext = image_path.suffix.lower()
+    mimetype_map = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.bmp': 'image/bmp'
+    }
+    mimetype = mimetype_map.get(ext, 'image/jpeg')
+    
+    return send_file(str(image_path), mimetype=mimetype)
 
 @app.route('/api/stream/<artist_name>/<video_code>/<filename>')
 def stream_media(artist_name, video_code, filename):
