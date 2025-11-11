@@ -138,7 +138,18 @@ body {
 }
 
 .video-card img {
-    height: 300px;
+    width: 100%;
+    aspect-ratio: 16 / 9; /* Horizontal rectangle (landscape) */
+    height: auto; /* Let aspect-ratio control the height */
+    object-fit: cover; /* Fill the container, crop if needed */
+    object-position: center;
+}
+
+/* Keep vertical aspect ratio for poster.jpg images */
+.video-card img[src*="/poster"] {
+    aspect-ratio: auto; /* Reset aspect ratio */
+    height: 300px; /* Use fixed vertical height for poster.jpg */
+    width: 100%;
 }
 
 .artist-card .card-info, .video-card .card-info {
@@ -486,7 +497,9 @@ body {
 }
 
 .video-card .card-placeholder {
-    height: 300px;
+    width: 100%;
+    aspect-ratio: 16 / 9; /* Horizontal rectangle (landscape) to match video images */
+    height: auto;
 }
 
 /* Responsive Design */

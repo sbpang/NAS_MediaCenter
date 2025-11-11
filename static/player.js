@@ -25,7 +25,7 @@ const SWIPE_THRESHOLD = 50;
 const MIN_SEEK_AMOUNT = 5;
 const MAX_SEEK_AMOUNT = 60;
 const BASE_VELOCITY = 300;
-const PIXELS_PER_MINUTE = 400;
+const PIXELS_PER_MINUTE = 300;
 const PIXELS_PER_VOLUME = 400; // Pixels needed to change volume from 0 to 100%
 const SEEK_UPDATE_INTERVAL = 100;
 

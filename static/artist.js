@@ -208,11 +208,6 @@ function renderVideos(videos) {
             cardInfo.appendChild(dateSpan);
         }
         
-        // Add file count
-        const fileCountP = document.createElement('p');
-        fileCountP.textContent = `${video.media.length} file(s)`;
-        cardInfo.appendChild(fileCountP);
-        
         card.appendChild(cardInfo);
         
         // Add click handler
