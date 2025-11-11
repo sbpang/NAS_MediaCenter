@@ -1,6 +1,6 @@
 # NAS Media Player
 
-A modern web-based media player for your Synology DS1621+ NAS, designed to stream videos and audio from your organized media library.
+A modern web-based media player for Synology NAS, designed to stream videos and audio from your organized media library.
 
 ## Features
 
