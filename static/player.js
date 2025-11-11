@@ -4,6 +4,7 @@ const API_BASE = '/api';
 const videoPlayerPage = document.getElementById('videoPlayerPage');
 const audioPlayerPage = document.getElementById('audioPlayerPage');
 const playerInfoHeader = document.getElementById('playerInfoHeader');
+const backButtonPlayer = document.getElementById('backButtonPlayer');
 
 // Swipe gesture state
 let swipeStartX = 0;
@@ -57,6 +58,11 @@ function loadPlayerData() {
             const videoCode = pathParts.length >= 3 ? decodeURIComponent(pathParts[2]) : '';
             
             console.log('Artist:', artistName, 'Video Code:', videoCode);
+            
+            // Update back button to go to artist's video page
+            if (backButtonPlayer) {
+                backButtonPlayer.href = `/artist/${encodeURIComponent(artistName)}`;
+            }
             
             if (!videoCode) {
                 playerInfoHeader.textContent = 'Invalid URL: Missing video code';

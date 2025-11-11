@@ -32,6 +32,11 @@ VIDEO_SERVER_PATH = os.getenv('VIDEO_SERVER_PATH', '/volume1/Video_Server')  # D
 def index():
     return send_from_directory('static', 'index.html')
 
+@app.route('/artist/<artist_name>')
+def artist_page(artist_name):
+    """Serve the main page for a specific artist (will show their videos)"""
+    return send_from_directory('static', 'index.html')
+
 @app.route('/player/<artist_name>/<video_code>')
 def player_page(artist_name, video_code):
     """Serve the player page for a specific video"""

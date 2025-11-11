@@ -25,7 +25,33 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupSwipeGestures();
     setupPWA();
+    checkUrlForArtist();
 });
+
+// Check URL to see if we should show a specific artist's videos
+function checkUrlForArtist() {
+    const pathname = window.location.pathname;
+    const pathParts = pathname.split('/').filter(p => p);
+    
+    // Check if URL is /artist/<artist_name>
+    if (pathParts.length === 2 && pathParts[0] === 'artist') {
+        const artistName = decodeURIComponent(pathParts[1]);
+        // Wait for artists to load, then select the artist
+        if (allArtists.length > 0) {
+            selectArtist(artistName);
+        } else {
+            // If artists haven't loaded yet, wait for them
+            const checkInterval = setInterval(() => {
+                if (allArtists.length > 0) {
+                    clearInterval(checkInterval);
+                    selectArtist(artistName);
+                }
+            }, 100);
+            // Timeout after 5 seconds
+            setTimeout(() => clearInterval(checkInterval), 5000);
+        }
+    }
+}
 
 // PWA setup - hide browser UI on mobile
 function setupPWA() {
@@ -94,6 +120,9 @@ async function loadArtists() {
         allArtists.sort((a, b) => a.name.localeCompare(b.name));
         renderArtists(allArtists);
         hideLoading();
+        
+        // After artists are loaded, check if we need to show a specific artist
+        checkUrlForArtist();
     } catch (error) {
         console.error('Error loading artists:', error);
         const errorDiv = document.createElement('div');
