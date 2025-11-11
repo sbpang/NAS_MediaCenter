@@ -109,6 +109,13 @@ body {
     }
 }
 
+/* Artist video page: 4 columns */
+@media (min-width: 768px) {
+    .videos-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 .artist-card, .video-card {
     background: var(--bg-card);
     border-radius: 15px;
@@ -150,6 +157,7 @@ body {
     aspect-ratio: auto; /* Reset aspect ratio */
     height: 300px; /* Use fixed vertical height for poster.jpg */
     width: 100%;
+    object-fit: contain; /* Show full image without cropping (preserve vertical rectangle) */
 }
 
 .artist-card .card-info, .video-card .card-info {

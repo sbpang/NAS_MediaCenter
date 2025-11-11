@@ -554,6 +554,35 @@ git pull origin main
 
 ---
 
+### Complete Reset (Drop Everything)
+
+If you need to completely reset your local repository to match the remote exactly, removing all local changes and untracked files:
+
+```bash
+cd /volume1/docker/nas-player
+
+# Fetch latest
+git fetch origin
+
+# Reset to match remote exactly (drops all local commits and changes)
+git reset --hard origin/main
+
+# Remove all untracked files and directories
+git clean -fd
+
+# Verify everything is clean
+git status
+```
+
+**Warning:** This will permanently delete:
+- All local commits not on remote
+- All uncommitted changes
+- All untracked files and directories
+
+Use this when you want a completely fresh start matching GitHub exactly.
+
+---
+
 ### Container Restart Doesn't Pick Up Changes
 
 **Symptoms:** Git pull works, but old code still running
