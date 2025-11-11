@@ -11,17 +11,22 @@ let swipeStartX = 0;
 let swipeStartY = 0;
 let swipeStartTime = 0;
 let swipeLastX = 0;
+let swipeLastY = 0;
 let swipeLastTime = 0;
 let isSwipeActive = false;
 let accumulatedPixels = 0;
+let accumulatedVolumePixels = 0;
 let lastSeekTime = 0;
 let lastSeekPosition = 0;
 let swipeStartPlayerTime = 0;
+let swipeStartVolume = 1.0;
+let isVolumeControl = false;
 const SWIPE_THRESHOLD = 50;
 const MIN_SEEK_AMOUNT = 5;
 const MAX_SEEK_AMOUNT = 60;
 const BASE_VELOCITY = 300;
-const PIXELS_PER_MINUTE = 600; // Reduced to 1/3: 1800 / 3 = 600 (swipe 1/3 shorter for same seconds)
+const PIXELS_PER_MINUTE = 400;
+const PIXELS_PER_VOLUME = 400; // Pixels needed to change volume from 0 to 100%
 const SEEK_UPDATE_INTERVAL = 100;
 
 // Keep reference to current preview element
@@ -205,17 +210,22 @@ function handleSwipeStart(e) {
     swipeStartY = clientY;
     swipeStartTime = now;
     swipeLastX = clientX;
+    swipeLastY = clientY;
     swipeLastTime = now;
     accumulatedPixels = 0;
+    accumulatedVolumePixels = 0;
     lastSeekTime = now;
     lastSeekPosition = 0;
     isSwipeActive = true;
+    isVolumeControl = false;
     
     const player = videoPlayerPage.style.display !== 'none' ? videoPlayerPage : audioPlayerPage;
     if (player && player.readyState > 0) {
         swipeStartPlayerTime = player.currentTime;
+        swipeStartVolume = player.volume;
     } else {
         swipeStartPlayerTime = 0;
+        swipeStartVolume = 1.0;
     }
 }
 
@@ -229,8 +239,13 @@ function handleSwipeMove(e) {
     const deltaX = clientX - swipeStartX;
     const deltaY = clientY - swipeStartY;
     
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+    // Determine if this is a horizontal (seek) or vertical (volume) gesture
+    const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+    
+    if (isHorizontal && Math.abs(deltaX) > 10) {
+        // Horizontal swipe for seek
         e.preventDefault();
+        isVolumeControl = false;
         
         accumulatedPixels = Math.abs(deltaX);
         swipeLastX = clientX;
@@ -267,6 +282,36 @@ function handleSwipeMove(e) {
                 }
             }
         }
+    } else if (!isHorizontal && Math.abs(deltaY) > 10) {
+        // Vertical swipe for volume
+        e.preventDefault();
+        isVolumeControl = true;
+        
+        accumulatedVolumePixels = Math.abs(deltaY);
+        swipeLastY = clientY;
+        swipeLastTime = now;
+        
+        const player = videoPlayerPage.style.display !== 'none' ? videoPlayerPage : audioPlayerPage;
+        
+        if (player && Math.abs(deltaY) > SWIPE_THRESHOLD) {
+            const volumeChange = accumulatedVolumePixels / PIXELS_PER_VOLUME;
+            let newVolume;
+            let icon;
+            
+            if (deltaY < 0) {
+                // Swipe up = increase volume
+                newVolume = Math.min(swipeStartVolume + volumeChange, 1.0);
+                icon = '🔊';
+            } else {
+                // Swipe down = decrease volume
+                newVolume = Math.max(swipeStartVolume - volumeChange, 0.0);
+                icon = '🔉';
+            }
+            
+            player.volume = newVolume;
+            const volumePercent = Math.round(newVolume * 100);
+            showVolumePreview(icon, volumePercent);
+        }
     }
 }
 
@@ -281,11 +326,15 @@ function handleSwipeEnd(e) {
     
     setTimeout(() => {
         hideSeekPreview();
+        hideVolumePreview();
     }, 100);
     
     isSwipeActive = false;
     
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
+    const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+    
+    if (isHorizontal && Math.abs(deltaX) > SWIPE_THRESHOLD) {
+        // Horizontal swipe for seek
         const player = videoPlayerPage.style.display !== 'none' ? videoPlayerPage : audioPlayerPage;
         const isPlaying = player && player.readyState > 0 && !player.ended;
         
@@ -307,13 +356,24 @@ function handleSwipeEnd(e) {
                 showSeekFeedback('⏪', `-${Math.round(actualSeek)}s`, newTime, duration);
             }
         }
+    } else if (!isHorizontal && Math.abs(deltaY) > SWIPE_THRESHOLD) {
+        // Vertical swipe for volume - volume already set during move, just show feedback
+        const player = videoPlayerPage.style.display !== 'none' ? videoPlayerPage : audioPlayerPage;
+        if (player) {
+            const volumePercent = Math.round(player.volume * 100);
+            const icon = player.volume > 0.5 ? '🔊' : (player.volume > 0 ? '🔉' : '🔇');
+            showVolumeFeedback(icon, `${volumePercent}%`);
+        }
     } else {
         hideSeekPreview();
+        hideVolumePreview();
     }
     
     accumulatedPixels = 0;
+    accumulatedVolumePixels = 0;
     lastSeekTime = 0;
     lastSeekPosition = 0;
+    isVolumeControl = false;
 }
 
 function formatTime(seconds) {
@@ -432,6 +492,114 @@ function hideSeekPreview() {
             }
         }
     }
+}
+
+function showVolumePreview(icon, volumePercent) {
+    let feedback = document.querySelector('.volume-feedback.preview');
+    
+    if (!feedback) {
+        const existingFeedback = document.querySelector('.volume-feedback');
+        if (existingFeedback) {
+            existingFeedback.remove();
+        }
+        
+        feedback = document.createElement('div');
+        feedback.className = 'volume-feedback preview';
+        document.body.appendChild(feedback);
+        
+        requestAnimationFrame(() => {
+            feedback.classList.add('show');
+            feedback.style.opacity = '1';
+            feedback.style.display = 'flex';
+            feedback.style.visibility = 'visible';
+            feedback.style.zIndex = '2147483647';
+        });
+    }
+    
+    feedback.innerHTML = `
+        <span class="seek-icon">${icon}</span>
+        <div class="seek-details">
+            <span class="seek-amount">${volumePercent}%</span>
+        </div>
+    `;
+    
+    feedback.classList.add('show');
+    feedback.style.opacity = '1';
+    feedback.style.display = 'flex';
+    feedback.style.visibility = 'visible';
+    feedback.style.zIndex = '2147483647';
+    feedback.style.position = 'fixed';
+    feedback.style.top = '50%';
+    feedback.style.left = '50%';
+    
+    const fullscreenEl = getFullscreenElement();
+    if (fullscreenEl) {
+        feedback.style.transform = 'translate(-50%, -50%) scale(1)';
+    } else {
+        feedback.style.transform = 'translate(-50%, -50%) scale(1.333)';
+    }
+}
+
+function hideVolumePreview() {
+    const existingFeedback = document.querySelector('.volume-feedback.preview');
+    if (existingFeedback) {
+        existingFeedback.classList.remove('show');
+        existingFeedback.style.opacity = '0';
+        setTimeout(() => {
+            if (existingFeedback.parentNode) {
+                existingFeedback.remove();
+            }
+        }, 300);
+    }
+}
+
+function showVolumeFeedback(icon, text) {
+    const existingPreview = document.querySelector('.volume-feedback.preview');
+    if (existingPreview) {
+        existingPreview.remove();
+    }
+    
+    const existingFeedback = document.querySelector('.volume-feedback:not(.preview)');
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    const feedback = document.createElement('div');
+    feedback.className = 'volume-feedback';
+    
+    const fullscreenEl = getFullscreenElement();
+    if (fullscreenEl) {
+        fullscreenEl.appendChild(feedback);
+    } else {
+        document.body.appendChild(feedback);
+    }
+    
+    feedback.innerHTML = `<span class="seek-icon">${icon}</span><span class="seek-text">${text}</span>`;
+    
+    feedback.classList.add('show');
+    feedback.style.opacity = '1';
+    feedback.style.display = 'flex';
+    feedback.style.visibility = 'visible';
+    feedback.style.zIndex = '2147483647';
+    feedback.style.position = 'fixed';
+    feedback.style.top = '50%';
+    feedback.style.left = '50%';
+    
+    if (fullscreenEl) {
+        feedback.style.transform = 'translate(-50%, -50%) scale(1)';
+    } else {
+        feedback.style.transform = 'translate(-50%, -50%) scale(1.333)';
+    }
+    
+    setTimeout(() => {
+        feedback.classList.remove('show');
+        feedback.style.opacity = '0';
+        setTimeout(() => {
+            if (feedback.parentNode) {
+                feedback.remove();
+            }
+        }, 300);
+    }, 1500);
 }
 
 function showSeekFeedback(icon, text, targetTime, duration) {

@@ -26,7 +26,7 @@ def after_request(response):
 #   - /volume1/Video_Server
 VIDEO_SERVER_PATH = os.getenv('VIDEO_SERVER_PATH', '/volume1/Video_Server')  # Default for DS1621+ deployment
 # For local development on Windows, uncomment and update:
-# VIDEO_SERVER_PATH = r'V:'
+#VIDEO_SERVER_PATH = r'V:'
 
 @app.route('/')
 def index():
@@ -34,8 +34,8 @@ def index():
 
 @app.route('/artist/<artist_name>')
 def artist_page(artist_name):
-    """Serve the main page for a specific artist (will show their videos)"""
-    return send_from_directory('static', 'index.html')
+    """Serve the artist video page"""
+    return send_from_directory('static', 'artist.html')
 
 @app.route('/player/<artist_name>/<video_code>')
 def player_page(artist_name, video_code):

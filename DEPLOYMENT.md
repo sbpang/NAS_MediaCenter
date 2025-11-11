@@ -116,17 +116,52 @@ Use Synology's built-in Task Scheduler for a GUI-based approach.
 
 SSH into your NAS and deploy manually whenever you push updates.
 
+**IMPORTANT:** Since the code is copied into the Docker image during build (not mounted), you MUST rebuild the container to see changes.
+
 **Workflow:**
 
 ```bash
 # SSH into your NAS
 ssh admin@YOUR_NAS_IP
 
-# Navigate and deploy
+# Navigate to project directory
+cd /volume1/docker/nas-player
+
+# Pull latest code from GitHub
+git pull origin main
+
+# Rebuild and restart the container (REQUIRED - restart alone won't work!)
+docker-compose up -d --build
+
+# Verify the container is running with new code
+docker ps
+docker logs nas-player | tail -20
+```
+
+**Alternative (if rebuild is slow, force rebuild):**
+```bash
 cd /volume1/docker/nas-player
 git pull origin main
-docker-compose restart nas-player
+
+# Force complete rebuild (removes old image first)
+docker-compose down
+docker-compose up -d --build --force-recreate
+
+# Verify
+docker logs nas-player | tail -20
 ```
+
+**Verify Changes Were Applied:**
+```bash
+# Check if new code is in the container
+docker exec nas-player cat /app/app.py | head -30
+
+# Or check a specific file that changed
+docker exec nas-player cat /app/static/player.js | grep "PIXELS_PER_MINUTE"
+```
+
+**Browser Cache Note:**
+After deployment, hard refresh your browser (Ctrl+F5 or Cmd+Shift+R) to clear cache and see changes.
 
 **Pros:**
 - ✅ Immediate deployment
@@ -136,6 +171,7 @@ docker-compose restart nas-player
 **Cons:**
 - 📝 Requires manual SSH access each time
 - ⚠️ Easy to forget
+- 🔄 Requires rebuild (takes longer than restart)
 
 ---
 
@@ -472,6 +508,49 @@ ls -la .git
 # Fix Git ownership if needed
 git config --global --add safe.directory /volume1/docker/nas-player
 ```
+
+---
+
+### Divergent Branches (Force Push Detected)
+
+**Symptoms:** `fatal: Need to specify how to reconcile divergent branches` or `forced update` message
+
+This happens when the remote branch was force-pushed (history rewritten).
+
+**Fix (Recommended for Deployment):**
+
+Reset local branch to match remote exactly:
+
+```bash
+cd /volume1/docker/nas-player
+
+# Fetch latest from remote
+git fetch origin
+
+# Reset local branch to match remote exactly (discards local changes)
+git reset --hard origin/main
+
+# Verify you're now in sync
+git status
+git log -1 --oneline
+```
+
+**Alternative (If you want to keep local changes):**
+
+```bash
+cd /volume1/docker/nas-player
+
+# Configure git to use merge strategy
+git config pull.rebase false
+
+# Then pull
+git pull origin main
+
+# If conflicts occur, resolve them or reset to remote:
+# git reset --hard origin/main
+```
+
+**For Deployment:** Always use `git reset --hard origin/main` to ensure your NAS matches GitHub exactly.
 
 ---
 

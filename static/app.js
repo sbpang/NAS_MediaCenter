@@ -7,10 +7,7 @@ let allVideos = [];
 
 // DOM Elements
 const artistsSection = document.getElementById('artistsSection');
-const videosSection = document.getElementById('videosSection');
 const artistsGrid = document.getElementById('artistsGrid');
-const videosGrid = document.getElementById('videosGrid');
-const backButton = document.getElementById('backButton');
 const searchInput = document.getElementById('searchInput');
 const playerModal = document.getElementById('playerModal');
 const videoPlayer = document.getElementById('videoPlayer');
@@ -23,35 +20,8 @@ const closeModal = document.querySelector('.close-modal');
 document.addEventListener('DOMContentLoaded', () => {
     loadArtists();
     setupEventListeners();
-    setupSwipeGestures();
     setupPWA();
-    checkUrlForArtist();
 });
-
-// Check URL to see if we should show a specific artist's videos
-function checkUrlForArtist() {
-    const pathname = window.location.pathname;
-    const pathParts = pathname.split('/').filter(p => p);
-    
-    // Check if URL is /artist/<artist_name>
-    if (pathParts.length === 2 && pathParts[0] === 'artist') {
-        const artistName = decodeURIComponent(pathParts[1]);
-        // Wait for artists to load, then select the artist
-        if (allArtists.length > 0) {
-            selectArtist(artistName);
-        } else {
-            // If artists haven't loaded yet, wait for them
-            const checkInterval = setInterval(() => {
-                if (allArtists.length > 0) {
-                    clearInterval(checkInterval);
-                    selectArtist(artistName);
-                }
-            }, 100);
-            // Timeout after 5 seconds
-            setTimeout(() => clearInterval(checkInterval), 5000);
-        }
-    }
-}
 
 // PWA setup - hide browser UI on mobile
 function setupPWA() {
@@ -72,10 +42,6 @@ function setupPWA() {
 }
 
 function setupEventListeners() {
-    backButton.addEventListener('click', () => {
-        showArtists();
-    });
-
     closeModal.addEventListener('click', () => {
         closePlayer();
     });
@@ -120,9 +86,6 @@ async function loadArtists() {
         allArtists.sort((a, b) => a.name.localeCompare(b.name));
         renderArtists(allArtists);
         hideLoading();
-        
-        // After artists are loaded, check if we need to show a specific artist
-        checkUrlForArtist();
     } catch (error) {
         console.error('Error loading artists:', error);
         const errorDiv = document.createElement('div');
@@ -180,39 +143,22 @@ function renderArtists(artists) {
         
         card.appendChild(cardInfo);
         
-        // Add click handler
+        // Add click handler - navigate to artist page
         card.addEventListener('click', () => {
-            selectArtist(artist.name);
+            const artistUrl = `/artist/${encodeURIComponent(artist.name)}`;
+            window.location.href = artistUrl;
         });
         
         artistsGrid.appendChild(card);
     });
 }
 
+// selectArtist is no longer needed - navigation is handled by clicking artist cards
+// Keeping function for backwards compatibility if needed
 async function selectArtist(artistName) {
-    try {
-        showLoading();
-        currentArtist = artistName;
-        
-        const response = await fetch(`${API_BASE}/artists/${encodeURIComponent(artistName)}/videos`);
-        if (!response.ok) throw new Error('Failed to load videos');
-        
-        allVideos = await response.json();
-        renderVideos(allVideos);
-        
-        // Auto-check for missing titles and update
-        await autoUpdateMissingTitles(artistName, true); // true = scrape real titles!
-        
-        document.getElementById('currentArtistName').textContent = artistName;
-        artistsSection.style.display = 'none';
-        videosSection.style.display = 'block';
-        searchInput.value = '';
-        hideLoading();
-    } catch (error) {
-        console.error('Error loading videos:', error);
-        hideLoading();
-        alert('Failed to load videos: ' + error.message);
-    }
+    // Navigate to artist page instead
+    const artistUrl = `/artist/${encodeURIComponent(artistName)}`;
+    window.location.href = artistUrl;
 }
 
 async function autoUpdateMissingTitles(artistName, scrapeReal = false) {
@@ -806,13 +752,7 @@ function closePlayer() {
     document.body.style.overflow = 'auto';
 }
 
-function showArtists() {
-    artistsSection.style.display = 'block';
-    videosSection.style.display = 'none';
-    currentArtist = null;
-    allVideos = [];
-    searchInput.value = '';
-}
+// showArtists function removed - no longer needed since videos are on separate page
 
 function showLoading() {
     loadingSpinner.style.display = 'flex';
